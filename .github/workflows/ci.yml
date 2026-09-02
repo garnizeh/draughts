@@ -166,10 +166,14 @@ jobs:
         with:
           cuda: '12.6.0'
           method: network
-          # nvcc and cudart carry the `cuda-` apt prefix; the cuBLAS/cuRAND
-          # dev libraries don't (they're `libcublas-dev-*`/`libcurand-dev-*`),
-          # so they go through non-cuda-sub-packages instead.
-          sub-packages: '["nvcc", "cudart"]'
+          # nvcc, cudart and nvrtc carry the `cuda-` apt prefix; the
+          # cuBLAS/cuRAND dev libraries don't (they're
+          # `libcublas-dev-*`/`libcurand-dev-*`), so they go through
+          # non-cuda-sub-packages instead. `nvrtc-dev` (not plain `nvrtc`) is
+          # what carries the unversioned `libnvrtc.so` symlink the linker
+          # looks for with `-lnvrtc` — cudarc/candle-kernels link against it
+          # even though nothing here calls into NVRTC directly.
+          sub-packages: '["nvcc", "cudart", "nvrtc-dev"]'
           non-cuda-sub-packages: '["libcublas-dev", "libcurand-dev"]'
 
       - name: Confirm the pinned toolchain is the one that's running
