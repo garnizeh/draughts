@@ -115,6 +115,19 @@ read it. Then:
 A PR with unanswered CodeRabbit threads is not done, the same way a PR with a
 red `just ci` is not done.
 
+**"Every thread" means more than the per-line comments.** CodeRabbit puts
+findings it cannot anchor to a changed line inside the review's own body text
+— a collapsible **"⚠️ Outside diff range comments"** section — rather than as
+individual comments with their own ids. Listing per-line comments (`gh api
+repos/OWNER/REPO/pulls/PR/comments`) never surfaces these; they exist only in
+`gh api repos/OWNER/REPO/pulls/PR/reviews` → each review's `body`. A pass that
+only reads the flat comment list will look complete and still leave findings
+answered by nobody. Before calling a CodeRabbit review done: list every review
+on the PR, read each `body` in full, and treat an outside-diff finding exactly
+like an inline one — verify it, fix or decline it, and reply where a reader
+can find the answer (inline if CodeRabbit later promotes it to its own
+thread, otherwise one PR comment naming every file and line it covered).
+
 ## Reporting a design problem
 
 An issue against the architecture is as valuable as a patch. The eight defects

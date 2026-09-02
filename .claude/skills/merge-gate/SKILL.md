@@ -92,3 +92,11 @@ Every finding gets a reply on its own thread — pointing at the fix, or stating
 why it stands as is — before the PR is done. See `CONTRIBUTING.md`. A PR is not
 finished with unanswered CodeRabbit threads any more than it is finished with a
 red `just ci`.
+
+The per-line comments (`gh api repos/OWNER/REPO/pulls/PR/comments`) are not the
+whole review. Findings CodeRabbit cannot anchor to a changed line live in the
+**"⚠️ Outside diff range comments"** section of the review body itself — pull
+every review's full body (`gh api repos/OWNER/REPO/pulls/PR/reviews`, then each
+`.body`) and check that section, or these get silently skipped. See
+`CONTRIBUTING.md` for the reply convention for findings that have no comment id
+to reply on.

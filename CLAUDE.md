@@ -107,6 +107,19 @@ Outside the gate, deliberately: `just test-tt-off`, `just test-load`,
   or re-argues the thread from it; a comment nobody answered is a review
   nobody read. One consolidated PR comment is not a substitute — reply on the
   thread itself so CodeRabbit's own resolution logic sees it.
+  - **Fetching "every comment" via `gh api repos/.../pulls/{n}/comments` is not
+    enough — it silently omits "Outside diff range comments".** CodeRabbit
+    puts findings it can't anchor to a changed line inside the review's own
+    `body` text (`gh api repos/.../pulls/{n}/reviews/{review_id}` → `.body`,
+    under a collapsible `⚠️ Outside diff range comments` section), not as
+    separate comment objects with their own ids — they never appear in the
+    comments endpoint and are the easiest findings to miss entirely. Before
+    calling a CodeRabbit review answered, list every review on the PR (`gh api
+    repos/.../pulls/{n}/reviews`) and read each one's full `body`, not just
+    the per-line comments it produced. Those findings have no comment id to
+    reply on inline; answer them together in one PR comment that names each
+    file and line, or wait for CodeRabbit to promote them to inline threads
+    on a later pass.
 
 ## Layout
 
