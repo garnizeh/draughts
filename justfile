@@ -49,9 +49,11 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
-# Clippy over every target, warnings denied.
+# Clippy over every target, default features. `--all-features` would pull in
+# `cuda` and its `cudarc`/nvcc dependency, breaking the CPU-only gate — the
+# feature-gated path is linted separately by `check-cuda` (§20.10).
 lint:
-    cargo clippy --locked --all-targets --all-features -- -D warnings
+    cargo clippy --locked --all-targets -- -D warnings
 
 # Type-check without producing a binary.
 check:
