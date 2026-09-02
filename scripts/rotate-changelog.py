@@ -134,6 +134,22 @@ def ordering_problem(released: list[Section]) -> str | None:
     return None
 
 
+def duplicate_problem(released: list[Section]) -> str | None:
+    """One section per version, because the rotation matches on version strings.
+
+    `retired` is a set of versions, so a version appearing both inside and
+    outside the keep window would filter the kept copy out along with the
+    archived one — and the archive page for the second would overwrite the
+    first. Either way a release's notes are gone. Refuse instead.
+    """
+    seen: set[str] = set()
+    for section in released:
+        if section.version in seen:
+            return f"[{section.version}] appears more than once"
+        seen.add(section.version)
+    return None
+
+
 def version_key(version: str) -> tuple[int, ...]:
     core = version.split("-", 1)[0]
     try:
@@ -178,13 +194,21 @@ def main() -> int:
 
     released = [section for section in sections if section.released]
 
-    problem = ordering_problem(released)
-    if problem is not None:
-        print(f"changelog: {problem}", file=sys.stderr)
-        return 1
+    for problem in (ordering_problem(released), duplicate_problem(released)):
+        if problem is not None:
+            print(f"changelog: {problem}", file=sys.stderr)
+            return 1
 
-    # `[Unreleased]` is where the next change goes, so it belongs at the top or
-    # it belongs nowhere.
+    # `[Unreleased]` is where the next change goes. Without one, the next change
+    # has nowhere to land and ends up appended to a released section — which is
+    # editing notes that have already been published under a tag. It must exist,
+    # and it must be first.
+    if not sections or sections[0].released:
+        print(
+            "changelog: CHANGELOG.md must open with an '## [Unreleased]' section",
+            file=sys.stderr,
+        )
+        return 1
     if any(not section.released for section in sections[1:]):
         print("changelog: [Unreleased] must be the first section", file=sys.stderr)
         return 1
@@ -214,6 +238,23 @@ def main() -> int:
 
     # Sections appear newest first, so the tail is what ages out.
     retiring = released[KEEP:]
+
+    # An archived page is immutable: its GitHub release notes were rendered from
+    # it at publish time. Check every target before writing any of them, so a
+    # collision halfway through cannot leave the archive half-rotated.
+    collisions = [
+        section.version
+        for section in retiring
+        if (ARCHIVE / f"{section.version}.md").exists()
+    ]
+    if collisions:
+        print(
+            "changelog-rotate: refusing to overwrite archived release notes for "
+            + ", ".join(collisions),
+            file=sys.stderr,
+        )
+        return 1
+
     for section in retiring:
         page = ARCHIVE / f"{section.version}.md"
         page.write_text(archive_page(section), encoding="utf-8")

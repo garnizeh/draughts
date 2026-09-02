@@ -126,6 +126,8 @@ ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
   a trailing comment (`@3d3c42e… # v7`). A tag is a pointer its author can
   repoint; a commit is not. Dependabot bumps the pin and the comment together,
   so do not "tidy" the comment away.
+- **Do not hard-wrap prose at a column count.** Not at 80, not at any number. Markdown, commit-message bodies, PR and issue text, YAML comments: one paragraph is one line, and a long paragraph breaks at a sentence boundary if it breaks at all. Every renderer that shows this text reflows it, monitors are wide, and a fixed wrap makes a one-word edit rewrite the whole paragraph in the diff. Two exceptions, and they are the only two: Rust source follows `rustfmt.toml`'s `max_width = 100`, enforced by `just fmt-check` — comments in `.rs` files match it, because a comment wider than the code it annotates reads badly in a split editor — and a commit *subject* line stays under ~72, because `git log --oneline`, `git shortlog` and GitHub's UI all truncate it. Nothing else has a column limit.
+- **Existing files are 80-wrapped; unwrap what you edit.** Do not mass-rewrap a file you are not otherwise touching — that buries a real change under a formatting diff.
 - **Do not weaken a check to make it pass.** If `just test` objects to a changed
   Zobrist fingerprint, that is a `format_version` bump, not an expected-constant
   edit.

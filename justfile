@@ -37,14 +37,20 @@ ci: fmt-check lint test device-check format-version-check changelog-check docs
 # nothing. Finding those here costs a minute; finding them on a pushed branch
 # costs a round trip and a red PR.
 #
+# Order matters, and it is not the order `ci.yml` lists the jobs in. `just`
+# stops the prerequisite chain at the first failure, so anything that can fail
+# for a reason other than "the tree is wrong" goes last. The two CUDA recipes
+# need a toolkit on this host; on a machine without one they fail on the
+# toolkit, and everything ahead of them has already run and already answered.
+#
 # Two caveats, stated rather than hidden. `portable-check` builds outside a
 # driverless container, so it is weaker than CI's version of the same job — CI
-# stays the authority on §22.1. And `check-cuda`/`build-cuda` need a CUDA
-# toolkit on this host; on a machine without one, run them nowhere and let CI
-# answer.
+# stays the authority on §22.1. And a red `pre-pr` whose only failure is a
+# missing toolkit is not a red tree: say which recipe could not run, and let CI
+# answer that half.
 
 # Every CI job, locally. Run this before opening a PR.
-pre-pr: ci workflows-check audit portable-check check-cuda build-cuda coverage
+pre-pr: ci workflows-check audit portable-check coverage check-cuda build-cuda
     @echo "pre-pr: every CI job is green here"
 
 # The `workflows` CI job: actionlint over .github/workflows. See `just setup`.
@@ -217,11 +223,21 @@ version:
     @sed -n '/^\[package\]/,/^\[[a-z]/ s/^version = "\(.*\)"/\1/p' Cargo.toml | head -1
 
 # Print the CHANGELOG section for VERSION. Non-zero if it is not closed yet.
+#
+# "Closed" means dated. `release.yml` asks this recipe whether a commit is a
+# release at all, and a `## [x.y.z]` with no date is a draft — matching it here
+# would send an unfinished section down a path that `release-check` then fails,
+# turning "not ready yet" into a red job on main. The version is matched
+# literally and only the date is a pattern: a version is full of dots, and dots
+# in a regex match anything.
 release-notes VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
-    notes="$(awk -v want="## [{{VERSION}}]" '
-        index($0, want) == 1 { inside = 1; next }
+    notes="$(awk -v want="## [{{VERSION}}] - " '
+        index($0, want) == 1 && $0 ~ /- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ {
+            inside = 1
+            next
+        }
         inside && index($0, "## [") == 1 { exit }
         inside { print }
     ' CHANGELOG.md | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}')"

@@ -57,6 +57,8 @@ enforced mechanically — two by `just ci` greps, one by the differential search
 test — and the harness front-loads them: the skills explain *why* each holds, so
 that a change which trips one gets fixed rather than worked around.
 
+It also encodes how the text itself is written. Prose is never hard-wrapped at a column count — the two exceptions are Rust source, which follows `rustfmt.toml`'s `max_width = 100` under the gate, and a commit subject line, which tooling truncates. Everything else reflows in whatever renders it, so a fixed wrap buys nothing and costs a paragraph-wide diff on every one-word edit.
+
 It also encodes *where* checking happens. `/gate` and `/review` both run
 **`just pre-pr`**, not `just ci`: `just ci` is one job of six, and the other
 five have caught things it structurally cannot see. Everything found locally is

@@ -130,6 +130,19 @@ driver downgrade
   is a `format_version` bump. `just test` will tell you; do not update the
   expected constant to make it stop.
 
+## Line width
+
+**Prose is not hard-wrapped at a column count.** Not at 80, not at any number. Markdown, commit-message bodies, pull request and issue text, YAML comments: one paragraph is one line, and a long paragraph breaks at a sentence boundary if it breaks at all.
+
+Every renderer that shows this text reflows it. Monitors are wide. And a fixed wrap makes a one-word edit rewrite an entire paragraph in the diff, which buries the change that mattered under the reflow that did not.
+
+Two exceptions, and they are the only two:
+
+- **Rust source** follows `rustfmt.toml`'s `max_width = 100`, enforced by `just fmt-check`. Comments in `.rs` files match it — a comment wider than the code it annotates reads badly in a split editor.
+- **A commit subject line** stays under about 72 characters, because `git log --oneline`, `git shortlog` and GitHub's UI all truncate it. The commit *body* has no such limit and should not be wrapped.
+
+The tree still contains a lot of prose wrapped at 80 from before this rule. Unwrap what you are editing anyway; do not mass-rewrap a file you are not otherwise touching.
+
 ## Releasing
 
 **The version in `Cargo.toml` is the source of truth, `CHANGELOG.md` is the
