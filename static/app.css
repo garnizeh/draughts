@@ -1,0 +1,80 @@
+/* Minimalist by design — §5.1: no SPA framework, no complex animation. */
+
+:root {
+    --square-light: #e8dcc8;
+    --square-dark: #6b5344;
+    --piece-black: #1c1c1c;
+    --piece-white: #f4f1ea;
+    --legal-target: #7fb069;
+    --ink: #1c1c1c;
+    --paper: #faf8f4;
+    --rule: #d8d2c6;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ink: #eae6dd;
+        --paper: #171614;
+        --rule: #3a3733;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 2rem 1.5rem;
+    max-width: 60rem;
+    margin-inline: auto;
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+}
+
+h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+.subtitle { margin: 0.25rem 0 2rem; opacity: 0.7; }
+
+.panel {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.panel h2 { margin-top: 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* §10.2: the server renders the board partial; this only styles it. */
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    aspect-ratio: 1;
+    max-width: 32rem;
+    border: 2px solid var(--square-dark);
+}
+
+.square { display: grid; place-items: center; }
+.square.light { background: var(--square-light); }
+.square.dark { background: var(--square-dark); }
+
+/* The authoritative legal-move state always comes from the server (§10.2). */
+.square.legal-target { outline: 3px solid var(--legal-target); outline-offset: -3px; }
+
+.piece {
+    width: 74%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 0;
+}
+
+.piece.black { background: var(--piece-black); }
+.piece.white { background: var(--piece-white); }
+.piece.king::after { content: "♛"; font-size: 1.2rem; }
+
+/* A canned line is a normal state, not a degraded one — do not style it as an
+   error (§5.1). */
+.commentary-idle { opacity: 0.55; font-style: italic; }
+
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: 0.85rem; }
+footer a { color: inherit; }

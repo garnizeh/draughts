@@ -1,0 +1,224 @@
+# The merge gate.
+#
+# Every job here either runs `just` or explains in a comment why it cannot. The
+# rule is that a green machine and a green pipeline mean the same thing, and the
+# way to keep that true is to have one definition of "green" — the justfile.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: nothing here needs to write to the repo, comment on a PR,
+# or touch packages. Read access to check out the tree is all every job uses.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # Deliberately no global `RUSTFLAGS: -D warnings`: it applies to every
+  # dependency too, which makes the build fail on somebody else's lint. Warnings
+  # are denied where they belong — `just lint` and `just docs`.
+
+jobs:
+  # The whole of `just ci`: formatting, clippy, the test suite, the two static
+  # checks in §19.6.5 and §20.8, and the docs.
+  #
+  # §20.10: "The full suite passes on CPU. Every test runs with
+  # face.device = 'cpu', on the default build. This is the gate: a change that
+  # can only be tested on a GPU is a change that has broken the property."
+  # This runner has no GPU, which is exactly what makes it the right runner.
+  gate:
+    name: gate (cpu, default build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # dtolnay/rust-toolchain does not read rust-toolchain.toml, so the pinned
+      # version is passed explicitly here to match it — the `just versions`
+      # step below is what actually proves the two never drift apart.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: extractions/setup-just@v4
+
+      - run: just versions
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: |
+          version="$(rustc --version)"
+          if ! printf '%s\n' "$version" | grep -qF ' 1.98.0 '; then
+            echo "expected rustc 1.98.0, got: $version" >&2
+            exit 1
+          fi
+
+      - run: just ci
+
+  # §22.1 and §20.10: "cargo build --release with no features produces a binary
+  # that links and runs on a machine with no driver and no toolkit."
+  #
+  # Asserted by building and *running* it in a container that has neither. The
+  # run matters as much as the build: a missing CUDA library shows up at load
+  # time, not at link time.
+  portable-build:
+    name: portable build (no driver, no toolkit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: rust:1.98.0-slim-bookworm
+    # The container job's default shell is `sh` (dash), which rejects
+    # `set -o pipefail`. The steps below need bash for that.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Confirm the container really has no CUDA
+        run: |
+          set -euo pipefail
+          if command -v nvcc >/dev/null 2>&1; then
+            echo "this job is meaningless with a toolkit installed" >&2
+            exit 1
+          fi
+          test ! -e /dev/nvidia0
+          echo "no toolkit, no device — proceeding"
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: |
+          version="$(rustc --version)"
+          if ! printf '%s\n' "$version" | grep -qF ' 1.98.0 '; then
+            echo "expected rustc 1.98.0, got: $version" >&2
+            exit 1
+          fi
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: extractions/setup-just@v4
+
+      - name: Build the portable binary
+        run: just build-release
+
+      - name: It must link and run
+        run: |
+          set -euo pipefail
+          ./target/release/draughts --version
+          # §23.1: validation runs on this host and must pass on the committed
+          # example, which resolves to the CPU profile here.
+          ./target/release/draughts --config draughts.example.toml --check-config
+
+      - name: The binary must not be linked against CUDA
+        run: |
+          set -euo pipefail
+          apt-get update -qq && apt-get install -y -qq binutils
+          if objdump -p ./target/release/draughts | grep -iE 'NEEDED.*(cuda|nvidia|cublas)'; then
+            echo "the default build has a CUDA dependency — see §19.6.5 property 3" >&2
+            exit 1
+          fi
+          echo "no CUDA in NEEDED"
+
+  # §20.10: "--features cuda builds. A compile-only CI job, no device required,
+  # so the feature-gated path cannot rot." §22.1: "Both builds must work, and CI
+  # builds both" — `cargo check` alone doesn't prove that: it never links, so a
+  # toolkit/driver mismatch (the exact failure mode §22.1 says "surfaces as a
+  # link error at build time") would pass `check-cuda` and only show up on the
+  # target host. `build-cuda` below closes that gap while staying compile-only:
+  # the resulting binary is never run, so no device is required.
+  #
+  # This is a gate. The half of §20.10 that *needs* a device is not, and does not
+  # run here — making it a gate would reintroduce the GPU dependency the whole
+  # section exists to prevent.
+  cuda-compile:
+    # Branch protection's required status check is the exact string
+    # "cuda feature compiles (no device)" — renaming this job (as an earlier
+    # commit here did, to reflect that it now also runs `just build-cuda`)
+    # makes that required check permanently "Expected", since nothing reports
+    # under the old name anymore. Keep the name stable; the job's steps below
+    # are what changed, not its identity.
+    name: cuda feature compiles (no device)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
+
+      # §22.1: if cudarc's supported toolkit range lags the driver's CUDA
+      # version, install a toolkit in range and point the build at it. That is
+      # the fix, not a driver downgrade. A mismatch surfaces as a link error at
+      # build time, which is the failure mode to prefer.
+      - uses: Jimver/cuda-toolkit@v0.2.36
+        id: cuda
+        with:
+          cuda: '12.6.0'
+          method: network
+          # nvcc, cudart and nvrtc carry the `cuda-` apt prefix; the
+          # cuBLAS/cuRAND dev libraries don't (they're
+          # `libcublas-dev-*`/`libcurand-dev-*`), so they go through
+          # non-cuda-sub-packages instead. `nvrtc-dev` (not plain `nvrtc`) is
+          # what carries the unversioned `libnvrtc.so` symlink the linker
+          # looks for with `-lnvrtc` — cudarc/candle-kernels link against it
+          # even though nothing here calls into NVRTC directly.
+          sub-packages: '["nvcc", "cudart", "nvrtc-dev"]'
+          non-cuda-sub-packages: '["libcublas-dev", "libcurand-dev"]'
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: |
+          version="$(rustc --version)"
+          if ! printf '%s\n' "$version" | grep -qF ' 1.98.0 '; then
+            echo "expected rustc 1.98.0, got: $version" >&2
+            exit 1
+          fi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cuda
+
+      - uses: extractions/setup-just@v4
+
+      - name: Check and lint the CUDA path
+        env:
+          # Ampere GA10x — the RTX 3050 in §2.4.
+          CUDA_COMPUTE_CAP: '86'
+        run: just check-cuda
+
+      # §22.1's "CI builds both": `cargo check` never links, so this is the
+      # step that actually exercises the failure mode the deployment note
+      # describes — a toolkit/driver mismatch surfacing as a link error.
+      - name: Build the CUDA path (release, not run)
+        env:
+          CUDA_COMPUTE_CAP: '86'
+        run: just build-cuda
+
+  # Advisories, licences, and duplicate dependencies.
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources

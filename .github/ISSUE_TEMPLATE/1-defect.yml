@@ -1,0 +1,123 @@
+name: Defect
+description: The code crashes, returns the wrong answer, or does something the architecture says it should not.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The architecture in [docs/architecture/](https://github.com/garnizeh/draughts/blob/main/docs/architecture/README.md)
+        is version 1.4 and approved. When the code and the document disagree, the
+        document is right and the code is the defect — this form is for that case.
+
+        Two neighbours, so this one stays about behaviour:
+
+        - If what broke is one of the **five rules** in [CLAUDE.md](https://github.com/garnizeh/draughts/blob/main/CLAUDE.md)
+          — `format_version`, transposition-table purity, the single `Device`
+          construction, the LLM never playing, or the CPU-only path — use
+          **Invariant violation**, which routes to an architecture review.
+        - If you believe the *document* is wrong rather than the code, use
+          **Defect in the architecture or the docs**. That is worth as much as a patch.
+
+        **Give every detail you have.** Paste the panic, the backtrace, the failing
+        assertion and the response body whole rather than trimmed — which frames matter is
+        a judgement the reader makes from the ones you would have dropped. Include the
+        commands that worked as well as the one that did not, the relevant part of
+        `draughts.toml`, and what you already ruled out. The one thing not to expand is the
+        specification: cite the §, do not restate it.
+
+  - type: textarea
+    id: what-happens
+    attributes:
+      label: What happens
+      description: The observed behaviour in a sentence or two. Verbatim output goes further down; describe the shape of it here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-should-happen
+    attributes:
+      label: What should happen, and which § says so
+      description: >
+        Cite the section that decides it — "§6.4 says the search returns the most-visited
+        child" carries the whole argument. If no section covers this, say so; that is
+        itself a finding.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >
+        The shortest path from a clean checkout. A failing test named as the property it
+        asserts is the best possible version of this field.
+      placeholder: |
+        1. cp draughts.example.toml draughts.toml
+        2. just run
+        3. curl -X POST localhost:8080/api/v1/matches ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The panic, the backtrace, the failing assertion, or the wrong response body. Paste it whole rather than trimmed.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it lives
+      description: The module the defect is in, as far as you can tell. Guessing is fine.
+      multiple: true
+      options:
+        - "api — routes, AppState, health (§5.2, §9)"
+        - "config — types and §23.1 startup validation (§23)"
+        - "db — pool, migrations, writer actor (§11, §12, §13)"
+        - "engine — mcts, evaluator, transposition (§5.4, §6)"
+        - "face — device, breaker, candle, canned (§5.7, §7)"
+        - "lab — runner, sampling (§5.5, §14)"
+        - "rules — board, moves, zobrist (§5.3)"
+        - "ui — the server-driven frontend (§10)"
+        - "ci / tooling — justfile, workflows, static checks"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      description: >
+        §20.10 — the whole suite is expected to pass on `face.device = "cpu"`, on the
+        default build, on a host with no driver. A defect that only appears on CUDA and a
+        defect that appears on both are different defects.
+      options:
+        - "cpu — default build, no driver needed"
+        - "cuda — the `cuda` feature, on a real device"
+        - "Both"
+        - "Not device-dependent"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >
+        `rustc --version`, the commit you are on, the OS, and — if this is a CUDA report —
+        the driver and toolkit versions. `just ci` output belongs here too if it is red.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I checked that the behaviour is not an unimplemented `todo!()` seam (those are tracked as implementation work, not defects).
+          required: true
+        - label: I read the § I am citing, rather than citing it from memory — or I said above that no § covers this behaviour.
+          required: true

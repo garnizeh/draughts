@@ -1,0 +1,94 @@
+[package]
+name = "draughts"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.98"
+description = "A single-binary draughts engine and self-play training lab"
+repository = "https://github.com/garnizeh/draughts"
+license = "MIT"
+readme = "README.md"
+keywords = ["draughts", "checkers", "mcts", "self-play"]
+categories = ["games", "science"]
+publish = false
+
+[features]
+default = []
+
+# CUDA adds a device to the Face layer. It never adds a requirement: a binary
+# built with this feature still starts, plays, and comments on a machine with
+# no driver, by falling back to the CPU profile. See §7.4.1 and §20.10.
+cuda = ["candle-core/cuda", "candle-transformers/cuda"]
+
+[dependencies]
+# HTTP — §5.2
+axum = { version = "0.8", features = ["macros", "http2"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs"] }
+tower = "0.5"
+tower-http = { version = "0.7", features = ["trace", "fs", "compression-gzip", "request-id"] }
+
+# Configuration — §23
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+
+# Persistence — §11, §12. `bundled` keeps SQLite a build input rather than a
+# deployment prerequisite; "no daemons, no sidecars" includes libsqlite3.
+rusqlite = { version = "0.40", features = ["bundled", "blob", "backup", "functions", "limits"] }
+
+# Concurrency — §15
+crossbeam-channel = "0.5"
+dashmap = "6"
+parking_lot = "0.12"
+rayon = "1"
+
+# Inference — §7. candle is a default dependency; CUDA is not.
+async-trait = "0.1"
+candle-core = "0.11"
+candle-transformers = "0.11"
+# Held at the version candle-core resolves, so the process does not compile and
+# link two tokenizer implementations.
+tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
+
+# Rendering — §10. HTMX partials are server-rendered HTML.
+minijinja = { version = "2", features = ["loader"] }
+
+# Observability — §21
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+
+# Misc
+anyhow = "1"
+rand = "0.10"
+rand_chacha = "0.10"
+sysinfo = "0.39"
+thiserror = "2"
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["test-util"] }
+
+[[bench]]
+name = "engine"
+harness = false
+
+[profile.release]
+# The transposition probe path and move generation are the hot loops; both
+# benefit from cross-crate inlining more than they cost in build time.
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+
+# §17.5: an abort inside the inference path takes the whole process down. Keep
+# the symbols needed to say where.
+debug = "line-tables-only"
+
+[profile.bench]
+inherits = "release"
+
+# Load and volume tests (§20.4) insert millions of rows. An unoptimised
+# dependency graph makes them measure the debug build instead of the system.
+[profile.test.package."*"]
+opt-level = 2

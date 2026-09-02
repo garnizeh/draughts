@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Read the architecture first
+    url: https://github.com/garnizeh/draughts/blob/main/docs/architecture/README.md
+    about: Version 1.4, approved. When the code and the document disagree, the document is right. Most questions are answered by a § before they are answered by a person.
+  - name: The plan of record
+    url: https://github.com/garnizeh/draughts/blob/main/docs/ROADMAP.md
+    about: The seven milestones and every planned issue between scaffolding and the MVP. This file is the plan; GitHub is the state.
+  - name: Setup, the gate, and the conventions
+    url: https://github.com/garnizeh/draughts/blob/main/CONTRIBUTING.md
+    about: just setup, just ci, the five rules, and what a PR owes a CodeRabbit review.

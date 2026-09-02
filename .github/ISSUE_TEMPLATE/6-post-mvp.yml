@@ -1,0 +1,83 @@
+name: Post-MVP proposal
+description: Something in §19, or something the MVP scope deliberately excludes.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The MVP is the 27 criteria in
+        [§25](https://github.com/garnizeh/draughts/blob/main/docs/architecture/25-acceptance-criteria.md)
+        and nothing else. Everything in
+        [§19](https://github.com/garnizeh/draughts/blob/main/docs/architecture/19-extensibility-roadmap.md)
+        — neural evaluators, policy MCTS, rule variants, GPU evaluation inside the search —
+        is post-MVP and unmilestoned. That is not a rejection; it is where the plan puts it.
+
+        Two things make a proposal here easy to say yes to later: it names the extension
+        point the architecture already left for it, and it does not need any of the five
+        rules relaxed. A proposal that needs a rule relaxed is not forbidden — it is a
+        revision to `docs/architecture/`, and saying so up front is the honest framing.
+
+        **Give every detail you have.** A proposal is judged on what it would cost, so
+        spell out the shape of the change — the types it touches, the seams it uses, what
+        it would add to the memory or VRAM budget, and what it would need the tests to
+        prove. A thin proposal is not a modest one; it is one nobody can evaluate.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Where it sits
+      options:
+        - "§19.1 Neural evaluator integration"
+        - "§19.2 Policy-based MCTS"
+        - "§19.3 Knowledge discovery"
+        - "§19.4 Rule variants — international draughts, 10×10, other captures"
+        - "§19.5 Format version evolution"
+        - "§19.6 GPU acceleration beyond commentary"
+        - "§2.2 Out of scope for MVP"
+        - "Nowhere in the document yet"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What it is, and what it would let the project do that it cannot do now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: seam
+    attributes:
+      label: Which extension point it uses
+      description: >
+        The architecture left named seams for most of §19 — the `Evaluator` trait and its
+        `EvaluatorIdentity`, the `format_version` dispatch, the factory that swaps an
+        evaluator by configuration. Say which one carries this, and what it needs that the
+        seam does not already give it.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: What it would cost
+      description: Tick honestly. A ticked box makes this a document change before it is a code change, which is a longer road but not a closed one.
+      options:
+        - label: "Needs a new field on `CommentaryContext`, or otherwise gives the Face layer something about the move (§2.3)."
+        - label: "Needs the transposition table to be allowed to change what a search returns (§20.5)."
+        - label: "Needs `Device` constructed outside `face::device::select_device` (§19.6.5)."
+        - label: "Needs something that cannot be tested without a GPU (§20.10)."
+        - label: "Changes a persisted encoding, so it is a `format_version` bump (§13.7, §19.5)."
+        - label: "Moves a memory or VRAM budget (§16.1, §16.6)."
+        - label: "Adds a runtime dependency outside the process — a daemon, a service, a sidecar (§2.1)."
+        - label: "None of these — it fits inside the architecture as approved."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What else was considered
+      description: >
+        Optional, and most useful when the answer is "nothing cheaper works". §24 records
+        the decisions that were taken and why; a proposal that re-opens one of them should
+        say which.

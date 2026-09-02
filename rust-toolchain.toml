@@ -1,0 +1,6 @@
+# Pinned so that `just fmt-check` and `just lint` cannot disagree between a
+# developer's machine and CI. Bump deliberately, in its own commit.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy", "rust-src"]
+profile = "default"
