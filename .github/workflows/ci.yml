@@ -145,7 +145,13 @@ jobs:
   # run here — making it a gate would reintroduce the GPU dependency the whole
   # section exists to prevent.
   cuda-compile:
-    name: cuda feature compiles and builds (no device)
+    # Branch protection's required status check is the exact string
+    # "cuda feature compiles (no device)" — renaming this job (as an earlier
+    # commit here did, to reflect that it now also runs `just build-cuda`)
+    # makes that required check permanently "Expected", since nothing reports
+    # under the old name anymore. Keep the name stable; the job's steps below
+    # are what changed, not its identity.
+    name: cuda feature compiles (no device)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
