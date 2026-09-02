@@ -1,0 +1,43 @@
+# Review ownership.
+#
+# This is not a bottleneck for its own sake. The paths listed below are the ones
+# where a change that looks local is not: the schema, the persisted encodings,
+# the search cache, the device seam, and the automation that decides what "green"
+# means. Everything else is covered by the catch-all.
+#
+# See CONTRIBUTING.md for the five rules these paths exist to protect.
+
+# Everything, unless something more specific claims it.
+*                                   @garnizeh
+
+# §11 §12 §13 — persistence. A migration is forever, and `format_version` is the
+# only thing standing between a schema change and an unreadable BLOB.
+/migrations/                        @garnizeh
+/src/db/                            @garnizeh
+/scripts/check-format-version.sh    @garnizeh
+
+# §6 §20.5 — the transposition table may change how long a search takes and must
+# never change what it returns.
+/src/engine/                        @garnizeh
+
+# §7 §19.6.5 — `candle_core::Device` is constructed in exactly one function, and
+# `CommentaryContext` is the whole of what the Face layer is given.
+/src/face/                          @garnizeh
+/scripts/check-device-construction.sh   @garnizeh
+
+# §23.1 — startup validation is what turns a bad configuration into a refusal to
+# start rather than a failure at hour four.
+/src/config/                        @garnizeh
+
+# The definition of "green", and the supply chain it runs through.
+/justfile                           @garnizeh
+/.github/                           @garnizeh
+/deny.toml                          @garnizeh
+/rust-toolchain.toml                @garnizeh
+/Cargo.toml                         @garnizeh
+/Cargo.lock                         @garnizeh
+
+# The architecture is version 1.4 and approved. When the code and the document
+# disagree the document is right, which makes editing the document the larger
+# act of the two.
+/docs/architecture/                 @garnizeh

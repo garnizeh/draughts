@@ -6,6 +6,12 @@ Notable changes to the implementation. The architecture has its own history in
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**Newest first, and five releases deep.** This file holds `[Unreleased]` and the
+five most recent releases; everything older is archived under
+[docs/changelog/](docs/changelog/README.md), one file per release. `just
+changelog-rotate` moves them, `just changelog-check` is in the merge gate, and
+neither is optional — a changelog nobody can read is a changelog nobody reads.
+
 ## [Unreleased]
 
 ### Added
@@ -36,6 +42,45 @@ the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with `/health` answering fully.
 - The error model from §9.1, including the deliberate absence of a
   `face_unavailable` error status.
+- Automated releases (`.github/workflows/release.yml`). The version in
+  `Cargo.toml` is the source of truth and `CHANGELOG.md` is the gate: a push to
+  `main` cuts an annotated tag only when the version has no tag *and* its
+  CHANGELOG section is closed — a dated `## [x.y.z] - YYYY-MM-DD` heading, not
+  `[Unreleased]`. The gate is then re-run at that tag before anything is built,
+  and the release notes are the CHANGELOG section itself rather than a generated
+  commit list. No bot rewrites the CHANGELOG.
+- Two release artefacts, Linux x86-64 only, each with a `.sha256` verified in CI
+  before publishing: a portable build with no CUDA dependency, built *and run*
+  in a container with neither driver nor toolkit, and a `cuda` build that is
+  linked but never run. Both halves of [§22.1](docs/architecture/22-deployment-model.md)
+  now ship rather than only compiling.
+- `just version`, `just release-notes`, `just release-check`, `just package` and
+  `just coverage` — the release workflow invokes recipes, like every other job,
+  so a green machine and a green pipeline still mean the same thing.
+- `scripts/check-no-cuda-linkage.sh`: one definition of the NEEDED assertion,
+  shared by `ci.yml`'s `portable-build` job and `just package portable`, so the
+  binary CI checks and the binary a release ships are checked the same way.
+- Coverage as a CI job and a `just coverage` recipe. Reported, never gated: a
+  percentage threshold against a tree whose unimplemented seams are `todo!()`
+  would measure the seams and be met by deleting them.
+- `actionlint` over `.github/workflows/`, and `SECURITY.md`, `.github/CODEOWNERS`
+  and a pull request template carrying the five rules as a checklist.
+- OpenSSF Scorecard, weekly and on `main`, publishing its result. It grades the
+  claims this repository makes about itself — pinned actions, scoped tokens,
+  branch protection, a security policy — and never gates a merge.
+- Pull requests are assigned to their author on open.
+- `just pre-pr`: every job `ci.yml` runs, run locally in CI's order — the gate,
+  actionlint, `just audit`, the portable build with its linkage assertion, the
+  CUDA path, and coverage. `just ci` is one of those six, and running it alone
+  was the gap this closes. It is honest about the two things it cannot fully
+  reproduce: `portable-check` builds outside a driverless container, and the
+  CUDA recipes need a toolkit on the host.
+- CHANGELOG rotation. This file keeps `[Unreleased]` and the five most recent
+  releases, newest first; `just changelog-rotate` archives the rest under
+  `docs/changelog/`, one file per release, with an index. `just
+  changelog-check` joins the merge gate and asserts both the limit and the
+  ordering — a section added below an older one would otherwise archive the
+  newest entry and publish the oldest one's notes.
 
 ### Fixed
 
@@ -61,6 +106,12 @@ the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the `cuda` feature, not just `cargo check`, so that path is actually linted;
   the nightly `load` job is disabled until `tests/load.rs`'s `todo!()` bodies
   are implemented, instead of failing every scheduled run.
+- CI: every `uses:` across the workflows now names a commit rather than a tag,
+  with the tag it belonged to in a trailing comment — a tag is a pointer its
+  author can repoint at any time, and Dependabot maintains the pin and the
+  comment together. `nightly.yml` gained a concurrency group, so a scheduled run
+  and a manual dispatch of the same suite cannot produce two baselines for one
+  night.
 
 ### Not yet implemented
 

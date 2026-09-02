@@ -22,21 +22,50 @@ the same thing by construction.
 ## The gate
 
 ```bash
+just pre-pr
+```
+
+is the one to run before opening a pull request: every job `ci.yml` runs, here,
+in CI's order. Finding a broken CUDA build or a bad workflow expression locally
+costs a minute; finding it on a pushed branch costs a round trip and a red PR.
+
+Two things it cannot fully reproduce, and says so rather than pretending
+otherwise: `portable-check` builds outside a driverless container, so CI stays
+the authority on §22.1; and `check-cuda`/`build-cuda` need a CUDA toolkit on
+this host. If a recipe fails for want of a tool rather than for want of correct
+code, `just setup` — and if it still cannot run, name it. A check that did not
+run is not a check that passed.
+
+```bash
 just ci
 ```
 
-which is `fmt-check`, `lint`, `test`, `device-check`, `format-version-check` and
-`docs`. Two of those are static checks that no compiler performs:
+is one of those six jobs — `fmt-check`, `lint`, `test`, `device-check`,
+`format-version-check`, `changelog-check` and `docs`. Three of those are static
+checks that no compiler performs:
 
 - `device-check` asserts `candle_core::Device` is constructed in exactly one
   function ([§19.6.5](docs/architecture/19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve)).
 - `format-version-check` asserts every insert path names `format_version`
   ([§20.8](docs/architecture/20-testing-strategy.md#208-format-version-tests)).
+- `changelog-check` asserts `CHANGELOG.md` is newest-first and holds no more
+  than five released sections. See *Releasing* below.
 
 The heavy suites are deliberately outside the gate and run nightly:
 `just test-tt-off` and `just bench`. `just test-load` runs neither — its CI
 job is commented out in `nightly.yml` until `tests/load.rs`'s `todo!()` bodies
 are implemented.
+
+The other five jobs on a pull request are `portable-build` (the default binary,
+built *and run* in a container with no driver and no toolkit), `cuda-compile`
+(`just check-cuda` and `just build-cuda`), `supply-chain` (`just audit`),
+`workflows` (actionlint over `.github/workflows/`), and `coverage`
+(`just coverage`). `just pre-pr` is all six.
+
+Coverage is reported and never gated. There is no percentage threshold, because
+a threshold against a tree whose unimplemented seams are `todo!()` would measure
+the seams — and would be met by deleting them rather than by filling them in.
+The lcov file is a run artifact; the summary is in the run's step summary.
 
 ## The three rules
 
@@ -100,6 +129,74 @@ driver downgrade
 - Changing a persisted encoding — including regenerating the Zobrist key table —
   is a `format_version` bump. `just test` will tell you; do not update the
   expected constant to make it stop.
+
+## Releasing
+
+**The version in `Cargo.toml` is the source of truth, `CHANGELOG.md` is the
+gate, and nobody runs `git tag`.**
+
+`release.yml` runs on every push to `main` and asks two questions. Does
+`v$(just version)` already have a tag? Does `CHANGELOG.md` have a *closed*
+section for that version — a dated `## [x.y.z] - YYYY-MM-DD` heading, not
+`[Unreleased]`? Almost every commit answers "already tagged" or "not closed",
+the job says so and exits green, and nothing happens. When the version is new
+*and* its notes are written, it cuts an annotated tag, re-runs the gate at that
+tag, builds, and publishes.
+
+That ordering is deliberate: nothing ships whose notes nobody wrote, and no bot
+rewrites the CHANGELOG. It stays prose, in one voice, like the rest of the tree.
+
+A release is an ordinary pull request containing only these:
+
+1. `version` bumped in `Cargo.toml`.
+2. `cargo update -p draughts`, so `Cargo.lock` records it. A stale lock means
+   the tarball is built from a dependency graph nobody wrote down.
+3. `## [Unreleased]` renamed to `## [x.y.z] - YYYY-MM-DD`, a fresh empty
+   `## [Unreleased]` opened above it, and the link references updated.
+4. `just changelog-rotate` if that pushed the file past five released sections.
+5. `just release-check x.y.z` printing `x.y.z is ready`.
+
+Merge it; the tag and the release appear by themselves. A release commit that
+also changes behaviour is a release whose notes are wrong.
+
+Two tarballs ship, Linux x86-64 only, each with a `.sha256` that CI verifies
+before publishing:
+
+- **portable** — default features, built inside a container with no driver and
+  no toolkit and then *run* there. Its linkage is asserted by
+  `scripts/check-no-cuda-linkage.sh`, the same check `ci.yml` makes, because a
+  missing CUDA library shows up at load time rather than at link time.
+- **cuda** — `--features cuda`, toolkit 12.6.0, built but never run. It carries
+  a `CUDA.md` saying plainly that it needs the CUDA runtime on the host: the
+  feature adds a device to the *engine*, but it adds a requirement to the
+  *executable*. §22.1 is written around the portable one.
+
+To rebuild an existing tag — a lost artifact, not a new version — use the
+workflow's `workflow_dispatch` input. It never creates a tag.
+
+### The CHANGELOG does not grow without bound
+
+`CHANGELOG.md` holds `[Unreleased]` and the **five most recent releases, newest
+first**. Anything older is archived by `just changelog-rotate` into
+`docs/changelog/`, one file per release, indexed in
+[docs/changelog/README.md](docs/changelog/README.md). `just changelog-check` is
+in the gate, so the file cannot quietly become the thing nobody opens.
+
+One release per archive file rather than five to a file, and the name never
+changes once written: a link to it does not rot, and `git log` follows it. The
+logrotate habit of shuffling `.1` to `.2` would rewrite every archive on every
+release and break both.
+
+Do not edit an archived section. The notes on its GitHub release were rendered
+from it at publish time; editing the file afterwards makes the two disagree with
+no way to tell which is right.
+
+## Reporting a vulnerability
+
+Not as an issue. [SECURITY.md](SECURITY.md) has the private-reporting link, what
+is in scope, and what is deliberately not — the absence of authentication is
+documented in [§18](docs/architecture/18-security-and-safety.md), not an
+oversight.
 
 ## Responding to CodeRabbit
 

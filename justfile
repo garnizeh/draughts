@@ -25,9 +25,40 @@ default:
 # The gate
 # ---------------------------------------------------------------------------
 
-# Everything CI checks, in the order CI checks it. Run before opening a PR.
-ci: fmt-check lint test device-check format-version-check docs
+# Everything the `gate` job checks, in the order it checks it. See `pre-pr`.
+ci: fmt-check lint test device-check format-version-check changelog-check docs
     @echo "ci: green"
+
+# Every job CI runs, not only the `gate` one. This is the pre-PR check.
+#
+# `just ci` is one job of six. The other five have caught real breakage that
+# `ci.yml`'s gate cannot see — a CUDA path that stopped compiling, a licence a
+# dependency changed under us, a workflow expression that parses and means
+# nothing. Finding those here costs a minute; finding them on a pushed branch
+# costs a round trip and a red PR.
+#
+# Two caveats, stated rather than hidden. `portable-check` builds outside a
+# driverless container, so it is weaker than CI's version of the same job — CI
+# stays the authority on §22.1. And `check-cuda`/`build-cuda` need a CUDA
+# toolkit on this host; on a machine without one, run them nowhere and let CI
+# answer.
+
+# Every CI job, locally. Run this before opening a PR.
+pre-pr: ci workflows-check audit portable-check check-cuda build-cuda coverage
+    @echo "pre-pr: every CI job is green here"
+
+# The `workflows` CI job: actionlint over .github/workflows. See `just setup`.
+workflows-check:
+    actionlint
+
+# The `portable-build` CI job, minus the container: §22.1 and §19.6.5's third
+# property, asserted rather than assumed.
+
+# Build the default binary, run it, and prove it needs no CUDA library.
+portable-check: build-release
+    ./target/release/draughts --version
+    ./target/release/draughts --config draughts.example.toml --check-config
+    ./scripts/check-no-cuda-linkage.sh
 
 # The half of §20.10 that runs everywhere, including a runner with no GPU:
 # `cargo build` with no features must produce a binary with no CUDA dependency.
@@ -171,13 +202,160 @@ bench *ARGS:
     cargo bench --locked {{ARGS}}
 
 # ---------------------------------------------------------------------------
+# Releasing
+# ---------------------------------------------------------------------------
+#
+# The version in Cargo.toml is the source of truth and the CHANGELOG is the
+# gate. `release.yml` pushes a tag for `just version` only once
+# `just release-notes` finds a *closed* section for it — a dated
+# `## [x.y.z] - YYYY-MM-DD` heading, not `[Unreleased]`. Bumping the version
+# without writing that section is therefore not a release, which is the point:
+# nothing ships whose notes nobody wrote.
+
+# The crate version. Cargo.toml is the one place it is written down.
+version:
+    @sed -n '/^\[package\]/,/^\[[a-z]/ s/^version = "\(.*\)"/\1/p' Cargo.toml | head -1
+
+# Print the CHANGELOG section for VERSION. Non-zero if it is not closed yet.
+release-notes VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    notes="$(awk -v want="## [{{VERSION}}]" '
+        index($0, want) == 1 { inside = 1; next }
+        inside && index($0, "## [") == 1 { exit }
+        inside { print }
+    ' CHANGELOG.md | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+    if [[ -z "$notes" ]]; then
+        echo "CHANGELOG.md has no closed section for {{VERSION}}" >&2
+        exit 1
+    fi
+    printf '%s\n' "$notes"
+
+# Everything that must hold before VERSION is packaged or tagged.
+release-check VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    want="{{VERSION}}"
+    if [[ ! "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+        echo "release-check: '$want' is not a semantic version" >&2
+        exit 1
+    fi
+    have="$(just version)"
+    if [[ "$have" != "$want" ]]; then
+        echo "release-check: Cargo.toml says $have, release says $want" >&2
+        exit 1
+    fi
+    # A stale lockfile means the tarball is built from a dependency graph
+    # nobody recorded. `--locked` everywhere else makes this cheap to assert.
+    locked="$(awk '/^name = "draughts"$/ { f = 1 } f && /^version = / { print; exit }' Cargo.lock)"
+    if [[ "$locked" != "version = \"$want\"" ]]; then
+        echo "release-check: Cargo.lock does not record draughts $want — run 'cargo update -p draughts'" >&2
+        exit 1
+    fi
+    # Keep a Changelog: the heading carries a release date, and an undated
+    # section is a draft rather than a release.
+    if ! grep -qE "^## \[${want//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+        echo "release-check: CHANGELOG.md has no dated '## [$want] - YYYY-MM-DD' heading" >&2
+        exit 1
+    fi
+    just release-notes "$want" >/dev/null
+    echo "release-check: $want is ready"
+
+# CHANGELOG.md keeps `[Unreleased]` and the five most recent releases, newest
+# first; everything older is archived under docs/changelog/, one file per
+# release. In the gate, because a release PR is exactly when it is cheapest to
+# fix and the only time it comes up.
+
+# Newest first, and no more than five released sections in CHANGELOG.md.
+changelog-check:
+    ./scripts/rotate-changelog.py --check
+
+# Archive whatever is over the limit into docs/changelog/.
+changelog-rotate:
+    ./scripts/rotate-changelog.py
+
+# §22.1: two builds, and both must work. `portable` is the one the deployment
+# model promises runs on a machine with no driver — its linkage is asserted,
+# not assumed. `cuda` adds a device and therefore adds a host requirement, so
+# it ships under its own name and says so in the tarball.
+
+# Build and archive a release tarball into dist/. FLAVOUR is portable or cuda.
+package VERSION FLAVOUR:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just release-check "{{VERSION}}"
+    case "{{FLAVOUR}}" in
+        portable) just build-release; suffix="x86_64-unknown-linux-gnu" ;;
+        cuda)     just build-cuda;    suffix="x86_64-unknown-linux-gnu-cuda" ;;
+        *) echo "package: unknown flavour '{{FLAVOUR}}' (portable|cuda)" >&2; exit 1 ;;
+    esac
+    name="draughts-{{VERSION}}-${suffix}"
+    stage="dist/${name}"
+    rm -rf "$stage"
+    mkdir -p "$stage"
+    cp target/release/draughts "$stage/"
+    cp draughts.example.toml README.md CHANGELOG.md LICENSE "$stage/"
+    if [[ "{{FLAVOUR}}" == "portable" ]]; then
+        ./scripts/check-no-cuda-linkage.sh "$stage/draughts"
+    else
+        cat > "$stage/CUDA.md" <<'NOTE'
+    # This build carries the `cuda` feature
+
+    It needs an NVIDIA driver and the CUDA 12.x runtime libraries on the host.
+    The feature adds a *device*, never a requirement of the engine: this binary
+    still starts, plays and comments with no GPU present, by falling back to the
+    CPU profile (§7.4.1). But it will not load at all without the CUDA runtime
+    it is linked against — that is a host requirement of the executable, not of
+    the design.
+
+    If the host has no driver, take the portable tarball instead. It is the same
+    revision with the feature off, and §22.1 is written around it.
+    NOTE
+    fi
+    tar -C dist -czf "dist/${name}.tar.gz" "$name"
+    ( cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256" )
+    rm -rf "$stage"
+    echo "packaged: dist/${name}.tar.gz"
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+
+# §20: reported, never gated — a percentage threshold against a tree full of
+# `todo!()` seams would measure the seams.
+
+# An lcov report and a summary table.
+coverage:
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov --locked --all-targets --no-report
+    cargo llvm-cov report --lcov --output-path lcov.info
+    cargo llvm-cov report | tee coverage-summary.txt
+
+# ---------------------------------------------------------------------------
 # Housekeeping
 # ---------------------------------------------------------------------------
 
+# `|| true` on each install: a tool that is already present, or a network that
+# is not, should not stop the rest from being set up. The recipe that needs a
+# missing tool will say so by name when it runs.
+
 # Install the toolchain components and CLI tools these recipes assume.
 setup:
-    rustup component add rustfmt clippy
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup component add rustfmt clippy llvm-tools-preview
     cargo install --locked cargo-deny || true
+    cargo install --locked cargo-llvm-cov || true
+    # actionlint has no cargo package. Go if it is here, a release binary if it
+    # is not — v1.7.7 is what the CI action's pinned image carries.
+    if command -v actionlint >/dev/null 2>&1; then
+        actionlint --version | head -1
+    elif command -v go >/dev/null 2>&1; then
+        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+    else
+        echo "actionlint is missing and there is no Go toolchain to build it with." >&2
+        echo "See https://github.com/rhysd/actionlint/releases — 'just workflows-check' needs it." >&2
+    fi
 
 # §22.1 promises a deployment that needs no internet. Fetch htmx and Alpine into
 # static/vendor/ rather than loading them from a CDN at page load.
@@ -191,9 +369,10 @@ setup-frontend:
     curl -fsSLo static/vendor/alpine.min.js https://unpkg.com/alpinejs@3/dist/cdn.min.js
     echo "vendored: $(ls -1 static/vendor/*.js | wc -l) files"
 
-# Remove build artefacts.
+# Remove build artefacts, release tarballs and the coverage report.
 clean:
     cargo clean
+    rm -rf dist/ lcov.info coverage-summary.txt
 
 # Remove the local database and its WAL. Does not touch models or config.
 clean-data:

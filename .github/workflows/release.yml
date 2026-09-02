@@ -1,0 +1,355 @@
+# Releasing.
+#
+# The version in Cargo.toml is the source of truth and CHANGELOG.md is the gate.
+# Merging a version bump to main is the whole of the human ritual: this workflow
+# notices that `just version` has no tag yet, refuses unless the CHANGELOG has a
+# *closed* section for it — a dated `## [x.y.z] - YYYY-MM-DD` heading, not
+# `[Unreleased]` — cuts the tag, and builds from it. Nothing ships whose notes
+# nobody wrote, and no bot rewrites the CHANGELOG: it stays prose, in one voice.
+#
+# A tag created with GITHUB_TOKEN does not itself trigger a workflow, so the
+# build cannot be hung off `on: push: tags` for the automatic path. The tag job
+# passes the decision downstream as an output instead, and the tag trigger is
+# kept for a hand-cut tag on some other commit.
+#
+# §22.1 wants two builds and both to work: a portable one with no CUDA
+# dependency, built in a container that has neither driver nor toolkit, and a
+# `cuda` one that adds a device and therefore a host requirement. They ship as
+# two tarballs, and the portable one's linkage is asserted rather than assumed.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'An existing tag to rebuild, e.g. v0.3.0'
+        required: true
+        type: string
+
+# Least privilege by default. The two jobs that write — the tag and the release
+# itself — ask for `contents: write` on their own, and nothing else does.
+permissions:
+  contents: read
+
+# A release is never cancelled by the next push: half a release is worse than a
+# late one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  # Is the commit that just landed on main a release? Only if its version has no
+  # tag and its CHANGELOG section is closed. Both answers are "no" almost every
+  # time, and this job costs a few seconds to say so.
+  tag:
+    name: cut the tag
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      cut: ${{ steps.cut.outputs.cut }}
+      tag: ${{ steps.cut.outputs.tag }}
+      version: ${{ steps.cut.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Decide, and tag if it is one
+        id: cut
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(just version)"
+          tag="v${version}"
+          {
+            echo "version=${version}"
+            echo "tag=${tag}"
+          } >> "$GITHUB_OUTPUT"
+
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+            echo "cut=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${tag} already exists — this commit is not a release."
+            exit 0
+          fi
+
+          if ! just release-notes "${version}" >/dev/null 2>&1; then
+            echo "cut=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CHANGELOG.md has no closed section for ${version} — not a release."
+            exit 0
+          fi
+
+          # Past this point the tree claims to be a release, so a failure here is
+          # a real failure rather than a quiet "not yet".
+          just release-check "${version}"
+
+          # An annotated tag, created through the API rather than by pushing, so
+          # the job never needs Git credentials on disk.
+          object="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags" \
+            -f "tag=${tag}" -f type=commit -f "object=${GITHUB_SHA}" \
+            -f "message=draughts ${version}" --jq '.sha')"
+          gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f "ref=refs/tags/${tag}" -f "sha=${object}" >/dev/null
+
+          echo "cut=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::cut ${tag}"
+
+  # One place that answers "which tag is being released", for the three ways of
+  # arriving here: an automatic cut, a hand-pushed tag, and a manual rebuild.
+  resolve:
+    name: resolve the release
+    needs: [tag]
+    if: |
+      always() && (
+        needs.tag.outputs.cut == 'true' ||
+        startsWith(github.ref, 'refs/tags/v') ||
+        github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - name: Resolve
+        id: resolve
+        # Every untrusted value arrives as an environment variable rather than
+        # through `${{ }}` inside the script: a tag name is attacker-influenced
+        # input, and expression interpolation into a shell body is how that
+        # becomes command execution.
+        env:
+          CUT: ${{ needs.tag.outputs.cut }}
+          CUT_TAG: ${{ needs.tag.outputs.tag }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "${CUT:-}" == "true" ]]; then
+            tag="${CUT_TAG}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${DISPATCH_TAG}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "resolve: '${tag}' is not a vX.Y.Z tag" >&2
+            exit 1
+          fi
+
+          version="${tag#v}"
+          # SemVer: anything with a pre-release identifier is not `latest`.
+          if [[ "${version}" == *-* ]]; then prerelease=true; else prerelease=false; fi
+
+          {
+            echo "tag=${tag}"
+            echo "version=${version}"
+            echo "prerelease=${prerelease}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::releasing ${tag} (prerelease=${prerelease})"
+
+  # The tarball must come from a tree that passed the gate at the exact ref being
+  # shipped. On the automatic path CI has already run on this commit; on the
+  # hand-cut-tag path nothing else guarantees it, and a release is the wrong
+  # place to find out.
+  verify:
+    name: gate at the release ref
+    needs: [resolve]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: "1.98.0"
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: The tree at this tag must agree it is this version
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: just release-check "$VERSION"
+
+      - run: just ci
+
+  # §22.1: "runs on a machine with no driver". Built in a container that has
+  # neither driver nor toolkit, so the promise is kept by construction rather
+  # than by a feature flag nobody re-checked.
+  build-portable:
+    name: build (portable, no CUDA)
+    needs: [resolve, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container: rust:1.98.0-slim-bookworm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - name: Confirm the container really has no CUDA
+        run: |
+          set -euo pipefail
+          if command -v nvcc >/dev/null 2>&1; then
+            echo "this job is meaningless with a toolkit installed" >&2
+            exit 1
+          fi
+          test ! -e /dev/nvidia0
+          echo "no toolkit, no device — proceeding"
+
+      # objdump, for the NEEDED assertion `just package portable` makes.
+      - name: Install binutils
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq binutils
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Package
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: just package "$VERSION" portable
+
+      - name: It must link and run here, where there is no driver
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          tar -C dist -xzf "dist/draughts-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          cd "dist/draughts-${VERSION}-x86_64-unknown-linux-gnu"
+          ./draughts --version
+          # §23.1: validation runs against this host and must pass on the
+          # committed example, which resolves to the CPU profile here.
+          ./draughts --config draughts.example.toml --check-config
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: draughts-portable
+          if-no-files-found: error
+          path: |
+            dist/draughts-*-x86_64-unknown-linux-gnu.tar.gz
+            dist/draughts-*-x86_64-unknown-linux-gnu.tar.gz.sha256
+
+  # The other half of §22.1. Built, never run: a device is not required to link
+  # against the toolkit, and requiring one here would put a GPU back in the
+  # release path that §20.10 spent a section removing.
+  build-cuda:
+    name: build (cuda)
+    needs: [resolve, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          toolchain: "1.98.0"
+
+      # The same 12.6.0 the `cuda-compile` gate builds against. §22.1 explains
+      # why the 12.x line and not 13.x: a newer driver runs binaries built
+      # against an older toolkit, and that is the direction the guarantee runs.
+      - uses: Jimver/cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d # v0.2.36
+        with:
+          cuda: '12.6.0'
+          method: network
+          sub-packages: '["nvcc", "cudart", "nvrtc-dev"]'
+          non-cuda-sub-packages: '["libcublas-dev", "libcurand-dev"]'
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: cuda
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Package
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          # Ampere GA10x — the RTX 3050 in §2.4.
+          CUDA_COMPUTE_CAP: '86'
+        run: just package "$VERSION" cuda
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: draughts-cuda
+          if-no-files-found: error
+          path: |
+            dist/draughts-*-x86_64-unknown-linux-gnu-cuda.tar.gz
+            dist/draughts-*-x86_64-unknown-linux-gnu-cuda.tar.gz.sha256
+
+  publish:
+    name: publish the release
+    needs: [resolve, build-portable, build-cuda]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      # The checksums travel with the tarballs; verifying them here is what makes
+      # them worth publishing. A file that arrived corrupt fails before anyone
+      # can download it.
+      - name: Checksums must verify before anything is published
+        run: |
+          set -euo pipefail
+          cd dist
+          ls -l
+          sha256sum -c ./*.sha256
+
+      # The notes are the CHANGELOG section, not a generated commit list. The
+      # section was written by a person and is the reason the tag exists.
+      - name: Release notes come from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: just release-notes "$VERSION" > release-notes.md
+
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: draughts ${{ needs.resolve.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ needs.resolve.outputs.prerelease == 'true' }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256

@@ -1,0 +1,68 @@
+# OpenSSF Scorecard.
+#
+# It grades the things a reader of this repository cannot check for themselves:
+# whether branch protection is on, whether the workflow tokens are scoped down,
+# whether the actions are pinned to commits, whether dependencies are updated,
+# whether a security policy exists. Every one of those is a claim the tree makes
+# about itself elsewhere; this is the job that checks the claim is still true.
+#
+# It never gates a merge. A finding here is a question for a human, and the
+# answer is sometimes "yes, deliberately".
+
+name: Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly, Monday 04:00 UTC — an hour after the nightly suites, so the two
+    # do not contend for runners.
+    - cron: '0 4 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: analyse
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Uploading the SARIF into the code-scanning tab is what makes the result
+      # readable; without it the run produces an artifact nobody opens.
+      security-events: write
+      # Scorecard reads its own workflow runs to grade them.
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@55891bbd73f2425e97637d96e306fc9d491d0b21 # v2.4.4
+        id: scorecard
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishing the result is what earns the badge and lets anyone
+          # reproduce the grade. This repository is public; there is nothing
+          # here that is not already readable.
+          publish_results: true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scorecard-sarif-${{ github.run_id }}
+          path: results.sarif
+          if-no-files-found: error
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          sarif_file: results.sarif

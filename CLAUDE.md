@@ -58,20 +58,41 @@ thing by construction.
 
 ```bash
 just                    # list every recipe
-just ci                 # the merge gate: fmt-check lint test device-check format-version-check docs
+just pre-pr             # every CI job, locally. The pre-PR check
+just ci                 # one of those six: fmt lint test device-check format-version-check changelog-check docs
 just test               # the suite
 just test-one NAME      # one test or module, with output
 just check              # type-check, no binary
 just run                # server against draughts.toml
 just check-config       # §23.1 validation against this host, no db, no port
 just bench              # criterion baselines (§20.9)
+just coverage           # lcov + a summary. Reported, never gated
 ```
 
-Outside `just ci` but still required on every PR, as separate `ci.yml` jobs:
-`just check-cuda`, `just build-cuda`, `just audit`. Outside the gate
-entirely, deliberately, and nightly-only: `just test-tt-off`, `just bench`.
-`just test-load` runs neither — its CI job is commented out in `nightly.yml`
-until `tests/load.rs`'s `todo!()` bodies are implemented.
+Outside `just ci` but still run on every PR, as separate `ci.yml` jobs:
+`just check-cuda`, `just build-cuda`, `just audit`, actionlint over
+`.github/workflows/`, and `just coverage`. **`just pre-pr` runs all six here,
+in CI's order** — use it, not `just ci`, when the question is whether a change
+is ready. The two things it cannot fully reproduce say so: `portable-check`
+builds outside a driverless container, and the CUDA recipes need a toolkit on
+this host. Outside the gate entirely,
+deliberately, and nightly-only: `just test-tt-off`, `just bench`. `just
+test-load` runs neither — its CI job is commented out in `nightly.yml` until
+`tests/load.rs`'s `todo!()` bodies are implemented.
+
+Releasing is not part of the gate and never runs on a pull request:
+
+```bash
+just version            # what the tree claims to be; Cargo.toml is the truth
+just release-check X.Y.Z    # everything that must hold before tagging
+just package X.Y.Z portable # dist/…-x86_64-unknown-linux-gnu.tar.gz
+```
+
+**Never run `git tag`.** `release.yml` watches `main` for a version bump whose
+`CHANGELOG.md` section is *closed* — a dated `## [x.y.z] - YYYY-MM-DD` heading,
+not `[Unreleased]` — and cuts the tag itself. Merging that bump is the whole
+ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
+`releasing` skill owns the procedure.
 
 ## Working in this tree
 
@@ -81,8 +102,9 @@ until `tests/load.rs`'s `todo!()` bodies are implemented.
   without exception, whatever language the conversation is being held in. The
   tree has one voice and a contributor should not have to switch languages to
   read it.
-- **Finish at the gate.** A change is not done until `just ci` is green. Report
-  the actual output; do not describe a run you did not make.
+- **Finish at the gate.** A change is not done until `just pre-pr` is green —
+  every job CI runs, run here. Report the actual output; do not describe a run
+  you did not make, and never round a check that did not run up to green.
 - **The unfinished parts are `todo!()` at named seams.** Each carries the section
   that owns it. Implement against that section, not against a guess. The
   `implement-seam` skill has the procedure.
@@ -92,9 +114,18 @@ until `tests/load.rs`'s `todo!()` bodies are implemented.
   density and voice of the surrounding comments — they are prose, not labels.
 - **Tests are named as the property they assert**, not as the function they call:
   `the_default_build_resolves_every_request_to_cpu`, not `test_select_device`.
+- **`CHANGELOG.md` is newest-first and holds five releases.** `[Unreleased]`
+  first, then the five most recent; older ones are archived under
+  `docs/changelog/`, one file per release, by `just changelog-rotate`.
+  `just changelog-check` is in the gate, so a section added in the wrong place
+  fails locally rather than growing a file nobody reads.
 - **New performance numbers go in
   [Appendix B](docs/architecture/appendix-b-performance-targets.md)**, not in a
   comment.
+- **Every `uses:` in a workflow names a commit**, with the tag it belonged to in
+  a trailing comment (`@3d3c42e… # v7`). A tag is a pointer its author can
+  repoint; a commit is not. Dependabot bumps the pin and the comment together,
+  so do not "tidy" the comment away.
 - **Do not weaken a check to make it pass.** If `just test` objects to a changed
   Zobrist fingerprint, that is a `format_version` bump, not an expected-constant
   edit.

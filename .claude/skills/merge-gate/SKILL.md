@@ -6,20 +6,39 @@ description: Run and interpret the draughts merge gate — just ci, fmt-check, l
 # The gate
 
 ```bash
-just ci
+just pre-pr     # every CI job, locally — this is the pre-PR check
+just ci         # one of those six jobs
 ```
 
-is `fmt-check`, `lint`, `test`, `device-check`, `format-version-check`, `docs` —
-in that order, and it is exactly what `ci.yml`'s `gate` job invokes. There is
+`just ci` is `fmt-check`, `lint`, `test`, `device-check`,
+`format-version-check`, `changelog-check`, `docs` — in that order, and it is
+exactly what `ci.yml`'s `gate` job invokes. There is
 one definition of "green" and it is the justfile. Never hand-roll a `cargo`
 command in place of a recipe: a passing hand-rolled command that differs from
 the recipe is a false green.
 
-**`just ci` is one of four required jobs, not the whole workflow.** `ci.yml`
-also runs `portable-build`, `cuda-compile` (`just check-cuda` + `just
-build-cuda`), and `supply-chain` (`just audit`) — each required on every PR,
-none reproduced by `just ci` itself. A PR isn't green until all four are; see
-"Before opening a PR" below for the two of those `just ci` doesn't cover.
+**`just ci` is one of six jobs, not the whole workflow.** `ci.yml` also runs
+`portable-build`, `cuda-compile` (`just check-cuda` + `just build-cuda`),
+`supply-chain` (`just audit`), `workflows` (actionlint over
+`.github/workflows/`), and `coverage` (`just coverage`) — none reproduced by
+`just ci` itself.
+
+**`just pre-pr` runs all six, here, in CI's order.** Use it before opening a
+PR, and use it instead of `just ci` when the question is "is this ready".
+Everything it finds is something a pushed branch would have found a round trip
+later, on someone else's runner. Two honest caveats:
+
+- `portable-check` builds outside a driverless container, so it is weaker than
+  `ci.yml`'s `portable-build`. CI remains the authority on §22.1.
+- `check-cuda` and `build-cuda` need a CUDA toolkit on this host. Without one
+  they fail on the toolkit, not on the tree. Say so and let CI answer — do not
+  report `pre-pr` as green when part of it did not run. An unrun check reported
+  as green is worse than a red one.
+
+`coverage` reports and never gates: there is no percentage threshold, because a
+threshold against a tree whose unimplemented seams are `todo!()` would measure
+the seams and be gamed by deleting them. The lcov file is an artifact and the
+summary is in the run's step summary.
 
 **A change is not done until `just ci` is green, and you have seen it.** Report
 the real output. If it fails and you are out of scope to fix it, say which
@@ -34,7 +53,10 @@ recipe failed and why.
 | `test` | The suite | Read the test name — it names the property that broke |
 | `device-check` | `candle_core::Device` constructed outside `src/face/device.rs` (§19.6.5) | Take the device as a parameter. See the `face-layer` skill |
 | `format-version-check` | An insert does not name `format_version`, or `src/db` decodes without referencing `CURRENT_FORMAT_VERSION` (§20.8) | See the `persisted-format` skill |
+| `changelog-check` | `CHANGELOG.md` is out of order, or holds more than five released sections | `just changelog-rotate`. If it is an ordering complaint, the new section went in below an older one — newest first |
 | `docs` | Broken intra-doc link, `RUSTDOCFLAGS=-D warnings` | Fix the link; do not drop the doc comment |
+| `workflows` (CI job, no recipe) | actionlint found a real error in `.github/workflows/` — a bad expression, an undefined output, a shell mistake | Fix the workflow. `filter_mode: nofilter`, so a finding may be in a file this PR did not touch, and it is still worth fixing |
+| `coverage` (CI job) | `just coverage` failed to *run* — never a percentage | Usually the same failure `just test` would give; read it as a test failure |
 
 Two failures that look like flakes and are not:
 
@@ -51,6 +73,7 @@ These are slow, large, or device-dependent. They run nightly. Do not add them to
 `just ci`; do run the relevant one when you have touched what it covers.
 
 ```bash
+just coverage        # §20 — lcov + a summary table. Reported, never gated
 just test-tt-off     # §5.4 — the search suite with the table disabled
 just test-load       # §20.4 — millions of rows, a peak-RSS gate. Minutes to hours
 just bench           # §20.9 — criterion baselines, tracked as numbers not pass/fail
@@ -80,20 +103,29 @@ If `cudarc`'s supported toolkit range lags the installed driver, install a
 toolkit in range — that is the fix, not a driver downgrade (§22.1).
 
 CI also builds the default binary in a container with **no driver and no
-toolkit**, runs it, and greps `objdump -p` for a CUDA `NEEDED` entry. A missing
-CUDA library shows up at load time, not at link time, which is why the run
-matters as much as the build.
+toolkit**, runs it, and asserts its linkage with
+`scripts/check-no-cuda-linkage.sh` — one definition of that check, shared with
+`just package portable`, so the binary CI checks and the binary a release ships
+are checked the same way. A missing CUDA library shows up at load time, not at
+link time, which is why the run matters as much as the build.
 
 ## Before opening a PR
 
-1. `just ci` — the `gate` job.
-2. `just check-cuda`, `just build-cuda`, and `just audit` — unconditionally.
-   All three are required CI jobs (`ci.yml`'s `cuda-compile` and
-   `supply-chain`), not only when you touched a feature-gated file: a
-   shared-code change can break any of them.
-3. `just test-tt-off` if you touched search or the table
-4. `CHANGELOG.md` updated
-5. Every new constant carries its §
+1. **`just pre-pr`** — and read its output. This is the whole of the mechanical
+   check, and running `just ci` in its place is the mistake this recipe exists
+   to remove.
+2. `just test-tt-off` if you touched search or the table.
+3. `CHANGELOG.md` updated, under `[Unreleased]`, newest first.
+4. Every new constant carries its §.
+5. If a recipe could not run for want of a tool, `just setup` — and if it still
+   cannot (no CUDA toolkit here), name it rather than rounding it to green.
+
+## Releasing is a different gate
+
+`release.yml` is not part of the merge gate and never runs on a pull request. It
+watches `main` for a version bump whose CHANGELOG section is closed, cuts the
+tag itself, and re-runs `just ci` at that tag before building anything. Do not
+run `git tag` — see the `releasing` skill, which owns that procedure.
 
 ## After CodeRabbit reviews
 

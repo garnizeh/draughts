@@ -152,6 +152,8 @@ CUDA_COMPUTE_CAP=86 just build-cuda
 
 Both builds are gated by CI, and the portable one is additionally built and *run* in a container with no driver and no toolkit — because a missing CUDA library shows up at load time, not at link time.
 
+Both are also what a release ships: two Linux x86-64 tarballs, each with a `.sha256` verified in CI before publishing. Releases are cut by merging a version bump whose CHANGELOG section is closed — nobody runs `git tag`, and the release notes are the CHANGELOG section, written by a person. See [CONTRIBUTING.md](CONTRIBUTING.md#releasing).
+
 The `.gguf` is not embedded in the binary — a 6 GB executable would be hostile to every build and CI system it touched. "Single binary" means one process and one deployable unit of *code*.
 
 ---
@@ -174,7 +176,7 @@ Recorded so a build that misses them by an order of magnitude is recognizably wr
 
 ## Contributing
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the setup, the gate, and the conventions. A careful read of [docs/architecture/](docs/architecture/README.md) and an issue for anything that does not hold together is still worth as much as a patch — the eight defects listed in [§0.2.2](docs/architecture/00-revision-history.md#022-corrections) were all found that way, and the two revisions since were each caused by a single number nobody had derived.
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the setup, the gate, the release procedure, and the conventions. Security findings go through **[SECURITY.md](SECURITY.md)**, privately, not as an issue. A careful read of [docs/architecture/](docs/architecture/README.md) and an issue for anything that does not hold together is still worth as much as a patch — the eight defects listed in [§0.2.2](docs/architecture/00-revision-history.md#022-corrections) were all found that way, and the two revisions since were each caused by a single number nobody had derived.
 
 Three rules are not negotiable, because the whole design rests on them. The first and third are enforced by CI; the second is enforced by a test suite:
 

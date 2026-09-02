@@ -8,15 +8,30 @@ Run the merge gate and drive it to green.
 
 $ARGUMENTS
 
-1. `just ci` — fmt-check, lint, test, device-check, format-version-check, docs.
-2. `just check-cuda` and `just audit` — unconditionally. CI runs both on every
-   PR (the `cuda-compile` and `supply-chain` jobs in `ci.yml`), not only on
-   feature-gated changes: a shared-code change can break the CUDA build or a
-   dependency policy without touching a CUDA-specific file.
-3. If any of it fails, triage with the `merge-gate` skill and fix the cause,
-   not the symptom. Never weaken a check to make it pass; a failing Zobrist
-   fingerprint or a search test that fails only at 8 threads is the check
+1. `just pre-pr` — every job `ci.yml` runs, locally, in CI's order: `just ci`
+   (fmt-check, lint, test, device-check, format-version-check, changelog-check,
+   docs), then actionlint, `just audit`, the portable build and its linkage
+   assertion, the CUDA path, and coverage.
+
+   Run the whole thing, not `just ci` alone. `just ci` is one job of six, and
+   the other five catch breakage it structurally cannot see — a CUDA path that
+   stopped compiling, a licence a dependency changed underneath us, a workflow
+   expression that parses and means nothing. Catching those here costs a
+   minute; catching them on a pushed branch costs a round trip and a red PR.
+
+2. If a recipe fails because its *tool* is missing rather than because the tree
+   is wrong, say which one and run `just setup`. Do not skip the job silently —
+   an unrun check reported as green is worse than a red one.
+
+   `check-cuda` and `build-cuda` need a CUDA toolkit on this host. If there is
+   none, say so plainly and leave those two to CI; do not report `pre-pr` as
+   green when part of it did not run.
+
+3. If anything fails, triage with the `merge-gate` skill and fix the cause, not
+   the symptom. Never weaken a check to make it pass: a failing Zobrist
+   fingerprint, or a search test that fails only at 8 threads, is the check
    working.
+
 4. Re-run until green, then report the actual final output.
 
 If I touched search or the transposition table, also run `just test-tt-off`.

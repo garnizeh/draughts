@@ -1,0 +1,29 @@
+# Assign the author to their own pull request.
+#
+# Small, and worth it: an unassigned PR is invisible in every "what is on my
+# plate" view GitHub offers, and the person who opened it is the person who owes
+# it a next action until they say otherwise.
+
+name: Auto Author Assign
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+# `pull_request_target` runs with a writable token against the *base* branch's
+# workflow definition. That is safe here for exactly one reason: this job checks
+# nothing out and runs no code from the pull request. Do not add a checkout step.
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: auto-author-assign-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  assign:
+    name: assign the author
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: toshimaru/auto-author-assign@4d585cc37690897bd9015942ed6e766aa7cdb97f # v3.0.1
