@@ -19,9 +19,7 @@
     ],
     "ask": [
       "Bash(just setup-frontend)",
-      "Bash(cargo update:*)",
-      "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(cargo update:*)"
     ],
     "deny": [
       "Bash(just clean-data)",

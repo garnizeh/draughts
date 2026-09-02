@@ -23,7 +23,13 @@ CLAUDE.md                       project instructions, loaded every session
 .github/ISSUE_TEMPLATE/         the forms themselves; the skill writes to their shape
 ```
 
-`.claude/settings.local.json` is git-ignored for per-developer overrides.
+`.claude/settings.local.json` is git-ignored for per-developer overrides. It
+can widen what is allowed, but it cannot narrow what `settings.json` asks about:
+permission rules resolve by type, `deny` > `ask` > `allow`, regardless of which
+file they came from. An `allow` in the local file will not silence a matching
+`ask` in the committed one — the rule has to leave the `ask` list. That is why
+`git commit` and `git push` are not in it: an unmatched command still prompts in
+the default mode, so listing them bought a second prompt rather than a first one.
 
 ## What it encodes
 
