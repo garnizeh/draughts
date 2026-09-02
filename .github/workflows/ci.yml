@@ -124,13 +124,18 @@ jobs:
           echo "no CUDA in NEEDED"
 
   # §20.10: "--features cuda builds. A compile-only CI job, no device required,
-  # so the feature-gated path cannot rot."
+  # so the feature-gated path cannot rot." §22.1: "Both builds must work, and CI
+  # builds both" — `cargo check` alone doesn't prove that: it never links, so a
+  # toolkit/driver mismatch (the exact failure mode §22.1 says "surfaces as a
+  # link error at build time") would pass `check-cuda` and only show up on the
+  # target host. `build-cuda` below closes that gap while staying compile-only:
+  # the resulting binary is never run, so no device is required.
   #
   # This is a gate. The half of §20.10 that *needs* a device is not, and does not
   # run here — making it a gate would reintroduce the GPU dependency the whole
   # section exists to prevent.
   cuda-compile:
-    name: cuda feature compiles (no device)
+    name: cuda feature compiles and builds (no device)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -166,11 +171,19 @@ jobs:
 
       - uses: extractions/setup-just@v4
 
-      - name: Compile the CUDA path
+      - name: Check and lint the CUDA path
         env:
           # Ampere GA10x — the RTX 3050 in §2.4.
           CUDA_COMPUTE_CAP: '86'
         run: just check-cuda
+
+      # §22.1's "CI builds both": `cargo check` never links, so this is the
+      # step that actually exercises the failure mode the deployment note
+      # describes — a toolkit/driver mismatch surfacing as a link error.
+      - name: Build the CUDA path (release, not run)
+        env:
+          CUDA_COMPUTE_CAP: '86'
+        run: just build-cuda
 
   # Advisories, licences, and duplicate dependencies.
   supply-chain:

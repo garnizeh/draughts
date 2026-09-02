@@ -53,7 +53,7 @@ CUDA_COMPUTE_CAP=86 just build-cuda
 
 **Both builds must work, and CI builds both** ([§20.10](20-testing-strategy.md#2010-device-parity-and-cuda-tests)). The `cuda` feature adds a device, never a requirement: the feature-enabled binary still starts, still plays, and still comments on a machine with no GPU, by falling back to the CPU profile ([§7.4.1](07-face-llm-layer.md#741-device-selection)).
 
-A note on the toolkit, because it will come up on this host: driver 595.84 exposes CUDA 13.2 and, by CUDA's forward-compatibility guarantee, supports every earlier toolkit. If `cudarc`'s supported toolkit range lags 13.x, install a 12.x toolkit alongside and point the build at it — that is the fix, not a driver downgrade. A mismatch surfaces as a link error at build time, which is the failure mode to prefer.
+A note on the toolkit, because it will come up on this host: driver 595.84 exposes CUDA 13.2, and by CUDA's *backward*-compatibility guarantee — a newer driver runs binaries built against an older toolkit — it runs binaries built against the 12.x line, which is what CI and `just build-cuda` actually target (toolkit 12.6.0; see `cuda-compile` in `ci.yml`). If `cudarc`'s supported toolkit range lags 13.x, install a 12.x toolkit alongside and point the build at it — that is the fix, not a driver downgrade. A mismatch surfaces as a link error at build time, which is the failure mode to prefer.
 
 That is the entire deployment. No daemon to install, start, version-match, or health-check. No second port. No inter-process protocol to keep compatible across upgrades.
 

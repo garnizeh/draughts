@@ -55,7 +55,7 @@ Every value that moved when the assumed host was replaced with the real one. [Ap
 | Default model, CPU | Qwen2.5-1.5B-Instruct Q4_K_M | **Qwen2.5-0.5B-Instruct Q4_K_M**, ~1.7 s / 64 tokens |
 | Assumed 2-core bandwidth | 35 GB/s | **15 GB/s** — the 1.3 figure exceeded this platform's total |
 | Quality profile | 7B Q5_K_M on CPU, `deadline_ms ≥ 12000` | **7B Q4_K_M on a headless card only**; does not fit alongside a desktop session |
-| Build | `cargo build --release` | Unchanged by default; **`CUDA_COMPUTE_CAP=86 cargo build --release --features cuda`** for the target host. CI builds both |
+| Build | `cargo build --release` | Unchanged by default; **`CUDA_COMPUTE_CAP=86 just build-cuda`** for the target host. CI builds both |
 | Missing / broken GPU | n/a | **Falls back to the CPU profile**, one warning, never an error |
 | Deployment artifacts | One `.gguf` | **Two `.gguf` files**, ~1.4 GB together |
 
