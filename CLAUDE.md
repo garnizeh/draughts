@@ -125,6 +125,17 @@ until `tests/load.rs`'s `todo!()` bodies are implemented.
     comment id to reply on inline; answer them together in one PR comment
     that names each file and line, or wait for CodeRabbit to promote them to
     inline threads on a later pass.
+  - **A PR is mergeable only once the *first* CodeRabbit comment on it reads
+    "No actionable comments were generated in the recent review. 🎉".** That
+    comment is the one CodeRabbit keeps rewriting as the review progresses, so
+    it — and nothing else — says whether the review has finished. Green checks
+    do not: the merge gate can be green while a review is still running, and a
+    review that produced findings leaves that sentence absent. Read it with
+    `gh api --paginate repos/.../issues/{n}/comments --jq '.[0].body'`, and
+    check which commits it covered (`Reviewing files that changed ... between
+    <base> and <head>`) — the sentence is only about the run that produced it,
+    so a phrase from before the last push says nothing about what was pushed
+    after. Merge without it only when the user says so explicitly.
 
 ## Layout
 
