@@ -48,7 +48,7 @@ candle-core = "0.11"
 candle-transformers = "0.11"
 # Held at the version candle-core resolves, so the process does not compile and
 # link two tokenizer implementations.
-tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
+tokenizers = { version = "0.23", default-features = false, features = ["onig"] }
 
 # Rendering — §10. HTMX partials are server-rendered HTML.
 minijinja = { version = "2", features = ["loader"] }
