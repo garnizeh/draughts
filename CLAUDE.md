@@ -125,6 +125,30 @@ until `tests/load.rs`'s `todo!()` bodies are implemented.
     comment id to reply on inline; answer them together in one PR comment
     that names each file and line, or wait for CodeRabbit to promote them to
     inline threads on a later pass.
+  - **CodeRabbit keeps its status in the *first* comment on the PR, editing
+    that one comment in place for the life of the review. It never posts a new
+    comment to say the review is finished.** Reading "the latest comment" is
+    therefore the wrong move and the easy mistake: the newest thing on the PR
+    is a round of findings, or somebody's reply, or your own — none of which
+    say whether CodeRabbit is still working. On #95 the status comment was
+    created at 14:43, before the first review, and last edited at 21:55, after
+    the last one: one comment id, rewritten all day, while six separate review
+    bodies came and went beneath it. It holds the walkthrough, the pre-merge
+    checks, the commit range last reviewed, and the one sentence that decides
+    whether we may merge:
+
+    > No actionable comments were generated in the recent review. 🎉
+
+    **A PR is mergeable only once that sentence is in that comment.** A green
+    gate does not say it — CI and the review are independent, so the checks can
+    pass while a review is still running, and a review that produced findings
+    simply leaves the sentence absent. Read it with `gh api --paginate
+    repos/.../issues/{n}/comments --jq '.[0].body'` — `.[0]`, the oldest
+    comment, never the newest — and check the `📥 Commits` block inside the
+    same comment for the range it covered (`Reviewing files that changed ...
+    between <base> and <head>`). The sentence speaks only for that run, so one
+    left over from before the last push says nothing about what was pushed
+    after it. Merge without it only when the user says so explicitly.
 
 ## Layout
 
