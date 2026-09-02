@@ -79,7 +79,16 @@ matters as much as the build.
 ## Before opening a PR
 
 1. `just ci`
-2. `just test-tt-off` if you touched search or the table
-3. `just check-cuda` if you touched anything feature-gated
+2. `just check-cuda` and `just audit` — unconditionally. Both are CI gates on
+   every PR (`ci.yml`'s `cuda-compile` and `supply-chain` jobs), not only when
+   you touched a feature-gated file: a shared-code change can break either.
+3. `just test-tt-off` if you touched search or the table
 4. `CHANGELOG.md` updated
 5. Every new constant carries its §
+
+## After CodeRabbit reviews
+
+Every finding gets a reply on its own thread — pointing at the fix, or stating
+why it stands as is — before the PR is done. See `CONTRIBUTING.md`. A PR is not
+finished with unanswered CodeRabbit threads any more than it is finished with a
+red `just ci`.

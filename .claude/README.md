@@ -37,5 +37,8 @@ that a change which trips one gets fixed rather than worked around.
 - If a section is renumbered, the `architecture-map` table moves with it.
 - If a recipe is added to `just ci`, the triage table in `skills/merge-gate/`
   gains a row.
+- Every CodeRabbit review comment gets a reply on its own thread before a PR is
+  done — pointing at the fix, or stating why it stands as is. See
+  `CONTRIBUTING.md`.
 
 A harness that describes a tree that no longer exists is worse than none.

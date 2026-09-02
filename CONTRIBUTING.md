@@ -99,6 +99,22 @@ driver downgrade
   is a `format_version` bump. `just test` will tell you; do not update the
   expected constant to make it stop.
 
+## Responding to CodeRabbit
+
+Every CodeRabbit finding gets a reply on its own thread before the PR merges —
+never silence, and never only a summary comment elsewhere on the PR. Verify the
+finding against the current code first, since it can be stale by the time you
+read it. Then:
+
+- **Fixing it:** reply with the commit (and line, if it moved) that fixes it.
+- **Not fixing it:** say why, plainly — a documented `todo!()` seam, a design
+  question that needs a human decision rather than a unilateral edit, or a
+  finding that no longer applies. CodeRabbit reads the reply and either
+  resolves the thread or pushes back on it; that loop is the point.
+
+A PR with unanswered CodeRabbit threads is not done, the same way a PR with a
+red `just ci` is not done.
+
 ## Reporting a design problem
 
 An issue against the architecture is as valuable as a patch. The eight defects

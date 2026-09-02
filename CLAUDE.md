@@ -99,6 +99,14 @@ Outside the gate, deliberately: `just test-tt-off`, `just test-load`,
   never derived from the variant name (§9.1).
 - `anyhow` at the binary and seam boundaries, `thiserror` for typed domain
   errors. No `unwrap()` on a path that can be reached by a request.
+- **Every CodeRabbit review comment gets a reply, on its own thread, before the
+  PR is done.** Verify the finding against the current code first — it may
+  already be stale. Reply pointing at the commit and line that fixes it, or
+  state plainly why it is not being fixed (a documented seam, a design
+  question for a human, out of scope). CodeRabbit reads the reply and resolves
+  or re-argues the thread from it; a comment nobody answered is a review
+  nobody read. One consolidated PR comment is not a substitute — reply on the
+  thread itself so CodeRabbit's own resolution logic sees it.
 
 ## Layout
 
