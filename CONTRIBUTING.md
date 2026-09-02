@@ -216,7 +216,9 @@ oversight.
 Every CodeRabbit finding gets a reply on its own thread before the PR merges —
 never silence, and never only a summary comment elsewhere on the PR. Verify the
 finding against the current code first, since it can be stale by the time you
-read it. Then:
+read it — and read the proposed patch sceptically even when the diagnosis is
+right, because a correct diagnosis attached to a wrong fix is the ordinary case
+rather than the exceptional one. Then:
 
 - **Fixing it:** reply with the commit (and line, if it moved) that fixes it.
 - **Not fixing it:** say why, plainly — a documented `todo!()` seam, a design
@@ -242,6 +244,23 @@ read each `body` in full, and treat an outside-diff finding exactly like an
 inline one — verify it, fix or decline it, and reply where a reader can find
 the answer (inline if CodeRabbit later promotes it to its own thread,
 otherwise one PR comment naming every file and line it covered).
+
+A review that changes nothing about how the next mistake is caught was a review
+half-read. When a finding names a *class* of mistake rather than a single
+instance, it should leave something behind:
+[.claude/skills/review-response/LESSONS.md](.claude/skills/review-response/LESSONS.md)
+is that record — a short conditional checklist, *if you changed X, check Y*,
+where every line cites the pull requests it was earned from. Read it against
+your own diff before opening a PR; it is the cheapest place left to catch the
+things no script catches yet.
+
+The citation list is a counter, and the counter is a promotion ladder. At two
+occurrences, anything a script can decide becomes a check in `just ci` — a check
+costs a second of CI and nothing at all to remember. At five, a rule only
+judgment can decide earns a line in `CLAUDE.md`, which is loaded into every
+session and is therefore the most expensive place in the tree to put a sentence.
+Either way the line leaves the file, so it stays bounded by graduation rather
+than by pruning.
 
 ## Filing an issue
 

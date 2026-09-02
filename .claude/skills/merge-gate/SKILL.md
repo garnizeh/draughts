@@ -119,6 +119,10 @@ link time, which is why the run matters as much as the build.
 4. Every new constant carries its §.
 5. If a recipe could not run for want of a tool, `just setup` — and if it still
    cannot (no CUDA toolkit here), name it rather than rounding it to green.
+6. `.claude/skills/review-response/LESSONS.md` read against this diff. It is a
+   short conditional checklist earned from real findings on this repository —
+   the things no script catches yet. Reading it costs a minute and is the
+   cheapest place left to catch anything on it.
 
 ## Releasing is a different gate
 
@@ -129,17 +133,6 @@ run `git tag` — see the `releasing` skill, which owns that procedure.
 
 ## After CodeRabbit reviews
 
-Every finding gets a reply on its own thread — pointing at the fix, or stating
-why it stands as is — before the PR is done. See `CONTRIBUTING.md`. A PR is not
-finished with unanswered CodeRabbit threads any more than it is finished with a
-red `just ci`.
+Every finding gets a reply on its own thread — pointing at the fix, or stating why it stands as is — before the PR is done. A PR is not finished with unanswered threads any more than it is finished with a red `just pre-pr`.
 
-The per-line comments (`gh api --paginate repos/OWNER/REPO/pulls/PR/comments`)
-are not the whole review. Findings CodeRabbit cannot anchor to a changed line
-live in the **"⚠️ Outside diff range comments"** section of the review body
-itself — pull every review's full body (`gh api --paginate
-repos/OWNER/REPO/pulls/PR/reviews`, then each `.body`) and check that section,
-or these get silently skipped. `--paginate` on both calls, not just the
-second: a PR with enough reviews or comments to span more than one page
-silently drops the rest without it. See `CONTRIBUTING.md` for the reply
-convention for findings that have no comment id to reply on.
+The procedure belongs to the **`review-response`** skill, which owns it end to end: the endpoint that silently omits half a review, how to verify a finding against code that has moved since, and the phase most people skip — deciding whether a finding named a class worth a permanent check, and writing what the review taught into `.claude/skills/review-response/LESSONS.md` so the next one starts from it. Load that skill rather than working from memory; two of PR #99's four findings had a correct diagnosis attached to a fix that would have made things worse, and that is the ordinary case.

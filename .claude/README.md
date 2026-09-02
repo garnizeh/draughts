@@ -19,8 +19,9 @@ CLAUDE.md                       project instructions, loaded every session
     transposition-safety/       the determinism contract (§6.7, §20.5)
     file-issue/                 the six forms, and the detail an issue owes a reader
     releasing/                  the version, the CHANGELOG gate, what release.yml does
+    review-response/            working a review, and LESSONS.md — what reviews taught
   agents/architecture-reviewer  reviews a diff against the five rules
-  commands/                     /gate /seam /arch /review /release
+  commands/                     /gate /seam /arch /review /release /respond
 scripts/
   check-device-construction.sh  §19.6.5 — one Device constructor
   check-format-version.sh       §20.8 — every insert names format_version
@@ -86,8 +87,6 @@ say so by name, never to round it up to green.
   heading vocabulary in `skills/file-issue/` changes with it. `gh issue create`
   bypasses the forms, so that skill is the only thing keeping a scripted issue
   and a web-filed one the same shape.
-- Every CodeRabbit review comment gets a reply on its own thread before a PR is
-  done — pointing at the fix, or stating why it stands as is. See
-  `CONTRIBUTING.md`.
+- Every CodeRabbit review comment gets a reply on its own thread before a PR is done — pointing at the fix, or stating why it stands as is. The procedure is `skills/review-response/`, and its last phase writes to `skills/review-response/LESSONS.md`: a conditional checklist — *if you changed X, check Y* — where every line was earned from a finding that actually happened here, and cites the PRs it was earned from. That citation list is a counter, and the counter is a promotion ladder: at ×2 anything a script can decide becomes a check in `just ci`; at ×5 a judgment rule earns a line in `CLAUDE.md`. Either way it leaves the file. **It is bounded by graduation, not by pruning** — if it is growing and nothing is graduating, the harvest is being skipped. `/gate` reads it against the diff before a PR; `/respond` writes to it after a review.
 
 A harness that describes a tree that no longer exists is worse than none.

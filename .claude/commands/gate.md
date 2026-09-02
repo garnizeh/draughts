@@ -34,4 +34,6 @@ $ARGUMENTS
 
 4. Re-run until green, then report the actual final output.
 
+5. Read `.claude/skills/review-response/LESSONS.md` against this diff. It is a short conditional checklist — *if you changed documentation, find the other files that say the same thing; if you changed a validator, check it rejects the missing case* — and every line on it is there because a reviewer once caught it here. Cheaper to run your own eyes over it now than to learn it again from a review thread.
+
 If I touched search or the transposition table, also run `just test-tt-off`.

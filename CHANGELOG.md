@@ -75,6 +75,7 @@ neither is optional — a changelog nobody can read is a changelog nobody reads.
   was the gap this closes. It is honest about the two things it cannot fully
   reproduce: `portable-check` builds outside a driverless container, and the
   CUDA recipes need a toolkit on the host.
+- A `review-response` skill and a `/respond` command owning the review loop end to end, and `.claude/skills/review-response/LESSONS.md` — a conditional checklist (*if you changed X, check Y*) where every line was earned from a finding that actually happened on this repository and cites the pull requests it came from. That citation list is a counter and the counter is a promotion ladder: at two occurrences anything a script can decide becomes a check in `just ci`; at five, a rule only judgment can decide earns a line in `CLAUDE.md`. Either way the line leaves the file, so it is bounded by graduation rather than by pruning. `/gate` reads it against the diff before a PR; `/respond` writes to it after a review. The CodeRabbit procedure, which had been restated in three places, now lives in one.
 - CHANGELOG rotation. This file keeps `[Unreleased]` and the five most recent
   releases, newest first; `just changelog-rotate` archives the rest under
   `docs/changelog/`, one file per release, with an index. `just

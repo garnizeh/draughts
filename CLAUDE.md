@@ -135,53 +135,8 @@ ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
   never derived from the variant name (§9.1).
 - `anyhow` at the binary and seam boundaries, `thiserror` for typed domain
   errors. No `unwrap()` on a path that can be reached by a request.
-- **Every CodeRabbit review comment gets a reply, on its own thread, before the
-  PR is done.** Verify the finding against the current code first — it may
-  already be stale. Reply pointing at the commit and line that fixes it, or
-  state plainly why it is not being fixed (a documented seam, a design
-  question for a human, out of scope). CodeRabbit reads the reply and resolves
-  or re-argues the thread from it; a comment nobody answered is a review
-  nobody read. One consolidated PR comment is not a substitute — reply on the
-  thread itself so CodeRabbit's own resolution logic sees it.
-  - **Fetching "every comment" via `gh api --paginate repos/.../pulls/{n}/comments`
-    is not enough — it silently omits "Outside diff range comments".**
-    CodeRabbit puts findings it can't anchor to a changed line inside the
-    review's own `body` text (`gh api --paginate
-    repos/.../pulls/{n}/reviews/{review_id}` → `.body`, under a collapsible
-    `⚠️ Outside diff range comments` section), not as separate comment objects
-    with their own ids — they never appear in the comments endpoint and are
-    the easiest findings to miss entirely. `--paginate` on both calls, not
-    just one: a PR with enough reviews or comments to span more than one page
-    silently drops the rest without it. Before calling a CodeRabbit review
-    answered, list every review on the PR and read each one's full `body`,
-    not just the per-line comments it produced. Those findings have no
-    comment id to reply on inline; answer them together in one PR comment
-    that names each file and line, or wait for CodeRabbit to promote them to
-    inline threads on a later pass.
-  - **CodeRabbit keeps its status in the *first* comment on the PR, editing
-    that one comment in place for the life of the review. It never posts a new
-    comment to say the review is finished.** Reading "the latest comment" is
-    therefore the wrong move and the easy mistake: the newest thing on the PR
-    is a round of findings, or somebody's reply, or your own — none of which
-    say whether CodeRabbit is still working. On #95 the status comment was
-    created at 14:43, before the first review, and last edited at 21:55, after
-    the last one: one comment id, rewritten all day, while six separate review
-    bodies came and went beneath it. It holds the walkthrough, the pre-merge
-    checks, the commit range last reviewed, and the one sentence that decides
-    whether we may merge:
-
-    > No actionable comments were generated in the recent review. 🎉
-
-    **A PR is mergeable only once that sentence is in that comment.** A green
-    gate does not say it — CI and the review are independent, so the checks can
-    pass while a review is still running, and a review that produced findings
-    simply leaves the sentence absent. Read it with `gh api --paginate
-    repos/.../issues/{n}/comments --jq '.[0].body'` — `.[0]`, the oldest
-    comment, never the newest — and check the `📥 Commits` block inside the
-    same comment for the range it covered (`Reviewing files that changed ...
-    between <base> and <head>`). The sentence speaks only for that run, so one
-    left over from before the last push says nothing about what was pushed
-    after it. Merge without it only when the user says so explicitly.
+- **Every CodeRabbit review comment gets a reply, on its own thread, before the PR is done.** Verify the finding against the current code first — it may already be stale, and its stated consequence is the part reviewers get wrong most often. Reply pointing at the commit and line that fixes it, or state plainly why it is not being fixed. CodeRabbit resolves or re-argues from the reply; one consolidated PR comment leaves every thread looking unanswered.
+  - The procedure is owned by the **`review-response`** skill, and it is worth loading rather than working from memory. It carries the trap that `gh api .../pulls/{n}/comments` silently omits "Outside diff range comments" — those live inside each review's own `body`, have no comment id, and are the easiest findings to miss entirely. It also carries the phase that makes a review worth having: deciding whether a finding named a *class* worth a permanent check, and recording the verdict in `.claude/skills/review-response/LESSONS.md` so a class seen twice stops being treated as a one-off.
 
 ## Layout
 
