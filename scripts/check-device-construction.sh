@@ -12,7 +12,14 @@
 set -euo pipefail
 
 readonly ALLOWED_FILE="src/face/device.rs"
-readonly PATTERN='\bDevice::(Cpu|new_cuda)\b'
+# Every spelling that constructs a `candle_core::Device`: the two unit-like
+# forms this file actually uses (`Device::Cpu`, `Device::new_cuda`), the
+# public `Cuda`/`Metal` tuple variants (constructible directly, bypassing any
+# `new_*` function), and the other constructor methods on the type
+# (`cuda_if_available`, `new_cuda_with_stream`, `new_metal`). A pattern that
+# only matched today's call sites would stop enforcing the rule the moment a
+# later change reached for one of these instead.
+readonly PATTERN='\bDevice::(Cpu|Cuda|Metal|new_cuda_with_stream|new_cuda|new_metal|cuda_if_available)\b'
 
 offenders="$(
     grep -rEn --include='*.rs' "$PATTERN" src tests benches 2>/dev/null \

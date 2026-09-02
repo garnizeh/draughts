@@ -105,7 +105,10 @@ pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
             cooldown_remaining_seconds: state.breaker.cooldown_remaining_seconds(now_ms),
         },
         transposition_table: TtHealth {
-            mode: match state.config.engine.lab.transposition_mode {
+            // Same section `evaluator` reads above: Play Mode is what is live
+            // between lab batches, which is what `/health` reports the rest
+            // of the time (§9.2).
+            mode: match state.config.engine.play.transposition_mode {
                 crate::config::TtMode::Deterministic => "deterministic",
                 crate::config::TtMode::Throughput => "throughput",
             },

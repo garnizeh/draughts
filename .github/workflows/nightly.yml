@@ -21,26 +21,46 @@ env:
 jobs:
   # §5.4: "a nightly CI job runs the golden-search suite with the table off to
   # prove the cache is not load-bearing for correctness."
+  #
+  # `DRAUGHTS_TT_DISABLED` has no reader yet: it is meant for the §20.5
+  # differential search test, and tree search (src/engine/mcts.rs) is still
+  # `todo!()`. Until that test exists and reads it, this job runs the same
+  # suite as `just test` — a documented, in-scope-later gap (CHANGELOG.md),
+  # not a defect to paper over with a fake consumer.
   transposition-off:
     name: correctness with the table disabled
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
       - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v4
       - run: just test-tt-off
 
   # §20.4: a million games, five million sampled rows, and a peak-RSS gate.
   # Minutes to hours — never a merge gate.
+  #
+  # Disabled for now: every test body in tests/load.rs is `todo!()` (the
+  # writer actor and lab runner they exercise don't exist yet), so this job
+  # would fail on every scheduled run rather than reporting a real load-test
+  # result. Flip `if: false` off once those seams are implemented.
   load:
     name: load and volume (§20.4)
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    if: false
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
       - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v4
       - run: just test-load
@@ -54,7 +74,11 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
       - uses: Swatinem/rust-cache@v2
       - uses: extractions/setup-just@v4
 
@@ -73,6 +97,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories

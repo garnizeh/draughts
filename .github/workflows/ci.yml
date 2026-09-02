@@ -42,10 +42,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      # rust-toolchain.toml pins the version; this action honours it.
+      # dtolnay/rust-toolchain does not read rust-toolchain.toml, so the pinned
+      # version is passed explicitly here to match it — the `just versions`
+      # step below is what actually proves the two never drift apart.
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.98.0"
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
@@ -53,6 +58,9 @@ jobs:
       - uses: extractions/setup-just@v4
 
       - run: just versions
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: rustc --version | grep -qF ' 1.98.0 ' || { echo "expected rustc 1.98.0, got: $(rustc --version)" >&2; exit 1; }
 
       - run: just ci
 
@@ -66,7 +74,7 @@ jobs:
     name: portable build (no driver, no toolkit)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    container: rust:1.98-slim-bookworm
+    container: rust:1.98.0-slim-bookworm
     # The container job's default shell is `sh` (dash), which rejects
     # `set -o pipefail`. The steps below need bash for that.
     defaults:
@@ -74,6 +82,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Confirm the container really has no CUDA
         run: |
@@ -84,6 +94,9 @@ jobs:
           fi
           test ! -e /dev/nvidia0
           echo "no toolkit, no device — proceeding"
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: rustc --version | grep -qF ' 1.98.0 ' || { echo "expected rustc 1.98.0, got: $(rustc --version)" >&2; exit 1; }
 
       - uses: Swatinem/rust-cache@v2
 
@@ -122,8 +135,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.0"
 
       # §22.1: if cudarc's supported toolkit range lags the driver's CUDA
       # version, install a toolkit in range and point the build at it. That is
@@ -139,6 +156,9 @@ jobs:
           # so they go through non-cuda-sub-packages instead.
           sub-packages: '["nvcc", "cudart"]'
           non-cuda-sub-packages: '["libcublas-dev", "libcurand-dev"]'
+
+      - name: Confirm the pinned toolchain is the one that's running
+        run: rustc --version | grep -qF ' 1.98.0 ' || { echo "expected rustc 1.98.0, got: $(rustc --version)" >&2; exit 1; }
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -159,6 +179,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories bans licenses sources

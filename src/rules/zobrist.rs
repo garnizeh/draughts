@@ -10,6 +10,7 @@
 //! generator, and [`TABLE_FINGERPRINT`] pins the result.
 
 use super::board::{Board, SQUARES, Side};
+use super::hashing::{FNV1A_OFFSET_BASIS, fnv1a_fold};
 
 pub type Zobrist = u64;
 
@@ -73,20 +74,13 @@ impl KeyTable {
     pub fn fingerprint(&self) -> u64 {
         // FNV-1a over every key, so that a reordering is caught as well as a
         // regeneration.
-        let mut hash: u64 = 0xCBF2_9CE4_8422_2325;
-        let mut fold = |value: u64| {
-            for byte in value.to_le_bytes() {
-                hash ^= u64::from(byte);
-                hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
-            }
-        };
+        let mut hash = FNV1A_OFFSET_BASIS;
         for plane in &self.pieces {
             for key in plane {
-                fold(*key);
+                hash = fnv1a_fold(hash, &key.to_le_bytes());
             }
         }
-        fold(self.side_to_move);
-        hash
+        fnv1a_fold(hash, &self.side_to_move.to_le_bytes())
     }
 }
 

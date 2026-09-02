@@ -121,17 +121,23 @@ impl Board {
 
     /// Decode a persisted board.
     ///
-    /// Callers must have dispatched on `format_version` before reaching here;
-    /// this function decodes version 1 and knows nothing about any other.
+    /// `format_version` is a parameter rather than a field read inside, so
+    /// that a caller cannot decode without having looked at it (§13.7) — the
+    /// same discipline `GameRecord::decode_moves` (`src/db/records.rs`)
+    /// applies to the sibling `games.moves` column. `None` for any version
+    /// this decoder does not know; it knows only version 1.
     #[must_use]
-    pub fn from_bytes(bytes: &[u8; 16]) -> Self {
+    pub fn from_bytes(bytes: &[u8; 16], format_version: u32) -> Option<Self> {
+        if format_version != crate::CURRENT_FORMAT_VERSION {
+            return None;
+        }
         let word = |i: usize| u32::from_le_bytes(bytes[i..i + 4].try_into().expect("4 bytes"));
-        Self {
+        Some(Self {
             black_men: word(0),
             white_men: word(4),
             black_kings: word(8),
             white_kings: word(12),
-        }
+        })
     }
 }
 
@@ -195,7 +201,16 @@ mod tests {
             black_kings: 0x0000_00FF,
             white_kings: 0xFF00_0000,
         };
-        assert_eq!(Board::from_bytes(&board.to_bytes()), board);
+        assert_eq!(
+            Board::from_bytes(&board.to_bytes(), crate::CURRENT_FORMAT_VERSION),
+            Some(board)
+        );
+    }
+
+    #[test]
+    fn an_unrecognized_format_version_does_not_decode() {
+        let board = Board::initial();
+        assert_eq!(Board::from_bytes(&board.to_bytes(), 999), None);
     }
 
     #[test]

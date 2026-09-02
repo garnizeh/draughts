@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use crate::rules::hashing::{FNV1A_OFFSET_BASIS, fnv1a_fold};
 use crate::rules::{GameResult, GameState, GameStatus, Move, Side};
 
 /// Identity of an evaluator *including its configuration*.
@@ -17,33 +18,24 @@ use crate::rules::{GameResult, GameState, GameStatus, Move, Side};
 pub struct EvaluatorIdentity(u64);
 
 impl EvaluatorIdentity {
-    fn fold(hash: u64, bytes: &[u8]) -> u64 {
-        let mut hash = hash;
-        for byte in bytes {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
-        }
-        hash
-    }
-
     /// Fold a variable-length field prefixed by its length, so that adjacent
     /// variable-length fields cannot be reinterpreted as each other —
     /// `("nn", "ab")` and `("nna", "b")` must not hash to the same value just
     /// because their concatenation, `nnab`, is the same bytes.
     fn fold_field(hash: u64, bytes: &[u8]) -> u64 {
-        let hash = Self::fold(hash, &(bytes.len() as u64).to_le_bytes());
-        Self::fold(hash, bytes)
+        let hash = fnv1a_fold(hash, &(bytes.len() as u64).to_le_bytes());
+        fnv1a_fold(hash, bytes)
     }
 
     /// Build an identity from a name and its numeric parameters.
     #[must_use]
     pub fn new(name: &str, params: &[(&str, u64)]) -> Self {
-        let mut hash: u64 = 0xCBF2_9CE4_8422_2325;
+        let mut hash = FNV1A_OFFSET_BASIS;
         hash = Self::fold_field(hash, name.as_bytes());
         for (key, value) in params {
             hash = Self::fold_field(hash, key.as_bytes());
             // Fixed-width: no ambiguity with an adjacent field, no framing needed.
-            hash = Self::fold(hash, &value.to_le_bytes());
+            hash = fnv1a_fold(hash, &value.to_le_bytes());
         }
         Self(hash)
     }

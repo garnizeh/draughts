@@ -35,7 +35,7 @@ pub fn sanitize(raw: &str) -> Option<String> {
         // Control and format characters never survive, including the
         // bidirectional overrides and isolates that can reorder rendered text.
         if ch.is_control()
-            || matches!(ch, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+            || matches!(ch, '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
         {
             continue;
         }
@@ -126,6 +126,15 @@ mod tests {
     fn control_characters_and_bidi_overrides_are_stripped() {
         let cleaned = sanitize("a\u{0}b\u{202E}c\u{200B}d").expect("not empty");
         assert_eq!(cleaned, "abcd");
+    }
+
+    /// U+061C Arabic Letter Mark is a bidirectional formatting control like
+    /// the override/isolate characters above, and must be stripped the same
+    /// way — a model response can otherwise use it to reorder displayed text.
+    #[test]
+    fn arabic_letter_mark_is_stripped() {
+        let cleaned = sanitize("a\u{061C}b").expect("not empty");
+        assert_eq!(cleaned, "ab");
     }
 
     /// U+2066..U+2069 (bidi isolates) can reorder displayed text just as the

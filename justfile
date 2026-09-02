@@ -123,10 +123,14 @@ build-cuda:
     cargo build --locked --release --features cuda
 
 # The compile-only CI job in §20.10, so the feature-gated path cannot rot.
+# Lints too, not just compiles — `lint` deliberately excludes `--features cuda`
+# (it would pull in cudarc/nvcc and break the CPU-only gate), so this is the
+# only place the cuda-gated path gets `-D warnings` coverage.
 
-# Compile the CUDA path without a device present.
+# Compile and lint the CUDA path without a device present.
 check-cuda:
     cargo check --locked --all-targets --features cuda
+    cargo clippy --locked --all-targets --features cuda -- -D warnings
 
 # ---------------------------------------------------------------------------
 # Running

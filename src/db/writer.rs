@@ -32,6 +32,16 @@ pub enum WriteOp {
     /// signals. This is how the durable class works (§11.4).
     Flush(oneshot::Sender<DbResult<()>>),
 
+    /// A durable write: the payload and its acknowledgement travel as one
+    /// channel message instead of two, so a channel with one free slot either
+    /// takes the whole durable write or none of it. Two separate messages
+    /// (payload, then a trailing `Flush`) left a window where the payload
+    /// enqueued but the barrier that would ack it could not, so a caller told
+    /// `Degraded` and prompted to retry could double-submit a write that had
+    /// already been queued for commit. The writer applies `payload` and then
+    /// acks once it is committed (§11.4, §20.6).
+    Durable(Box<WriteOp>, oneshot::Sender<DbResult<()>>),
+
     /// Drain and stop.
     Shutdown(oneshot::Sender<()>),
 }
@@ -46,6 +56,7 @@ impl WriteOp {
             Self::Positions(rows) => rows.len(),
             Self::Edges(rows) => rows.len(),
             Self::BatchProgress { .. } | Self::BatchStatus { .. } => 1,
+            Self::Durable(payload, _) => payload.row_count(),
             Self::Flush(_) | Self::Shutdown(_) => 0,
         }
     }
@@ -121,20 +132,16 @@ impl WriterHandle {
     /// Durable class: enqueue, then wait for the commit that contains it.
     ///
     /// The HTTP response is returned only after this resolves, which is what
-    /// "nothing acknowledged is lost" means (§11.4).
+    /// "nothing acknowledged is lost" means (§11.4). `op` and its
+    /// acknowledgement travel as a single `WriteOp::Durable` message
+    /// (`try_send`, not `send`: this runs on a Tokio worker thread, and a
+    /// blocking send on a saturated channel would park that worker and stall
+    /// unrelated tasks) — one `try_send`, not two, so there is no window where
+    /// the payload is queued but the message that would ack it is rejected.
     pub async fn send_durable(&self, op: WriteOp) -> DbResult<()> {
-        self.tx.try_send(op).map_err(|error| match error {
-            TrySendError::Full(_) => DbError::Degraded("write queue saturated".to_string()),
-            TrySendError::Disconnected(_) => DbError::WriterGone,
-        })?;
-
-        // `try_send`, not `send`: this runs on a Tokio worker thread, and a
-        // blocking send on a saturated channel would park that worker and
-        // stall unrelated tasks. A full channel here gets the same 503 the
-        // enqueue above would have returned.
         let (ack_tx, ack_rx) = oneshot::channel();
         self.tx
-            .try_send(WriteOp::Flush(ack_tx))
+            .try_send(WriteOp::Durable(Box::new(op), ack_tx))
             .map_err(|error| match error {
                 TrySendError::Full(_) => DbError::Degraded("write queue saturated".to_string()),
                 TrySendError::Disconnected(_) => DbError::WriterGone,
@@ -269,5 +276,30 @@ mod tests {
             matches!(result, Err(DbError::Degraded(_))),
             "expected Degraded, got {result:?}"
         );
+    }
+
+    /// §11.4: the payload and its acknowledgement travel as one message, so a
+    /// channel with exactly one free slot accepts the whole durable write.
+    /// Under the earlier two-message design (payload, then a trailing
+    /// `Flush`), this slot would have taken the payload and then failed to
+    /// enqueue the barrier that acks it — returning `Degraded` for a write
+    /// that was, in fact, already queued for commit, and inviting a retry
+    /// that would double-submit it.
+    #[tokio::test]
+    async fn a_durable_write_needs_only_one_free_slot() {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let handle = WriterHandle::new(tx);
+
+        // Stands in for the writer actor: take the single message off the
+        // channel and ack it immediately, proving the whole durable write —
+        // payload and ack together — fit in the channel's one slot.
+        std::thread::spawn(move || {
+            if let Ok(WriteOp::Durable(_, ack)) = rx.recv() {
+                let _ = ack.send(Ok(()));
+            }
+        });
+
+        let result = handle.send_durable(WriteOp::Game(game())).await;
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
     }
 }

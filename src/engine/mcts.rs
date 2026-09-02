@@ -46,7 +46,6 @@ pub struct MctsConfig {
     /// `0` = iteration-bounded, which is the only reproducible setting.
     pub max_time_ms: u64,
     pub exploration_constant: f32,
-    pub cpuct: f32,
     pub seed: u64,
     pub thread_budget: ThreadBudget,
     pub tt_mode: TtMode,
@@ -61,7 +60,6 @@ impl MctsConfig {
             max_iterations: search.iterations,
             max_time_ms: search.time_budget_ms,
             exploration_constant: search.exploration_constant,
-            cpuct: search.exploration_constant,
             seed,
             thread_budget: ThreadBudget::from_worker_threads(search.worker_threads),
             tt_mode: search.transposition_mode,

@@ -50,7 +50,7 @@ impl FaceStatus {
             model_loaded: false,
             resident_mb: 0,
             vram_used_mb: 0,
-            vram_budget_mb: None,
+            vram_budget_mb: device.is_cuda().then_some(config.limits.max_vram_mb),
         }
     }
 

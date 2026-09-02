@@ -51,8 +51,8 @@ const CPU_BANDWIDTH_BYTES_PER_SEC: f64 = 15.0 * 1e9;
 /// kernels are not llama.cpp's; the 55 % discount is deliberate.
 const CUDA_BANDWIDTH_BYTES_PER_SEC: f64 = 168.0 * 1e9 * 0.55;
 
-const MB: u64 = 1024 * 1024;
-const GB: u64 = 1024 * MB;
+pub(crate) const MB: u64 = 1024 * 1024;
+pub(crate) const GB: u64 = 1024 * MB;
 
 /// A validation failure that names the key responsible for it.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -138,19 +138,49 @@ impl ValidationReport {
 pub fn validate(config: &Config, device: DeviceKind) -> ValidationReport {
     let mut report = ValidationReport::default();
 
+    // Stat each model path once and hand the result to every check that needs
+    // it — `check_host_memory`, `check_deadlines`, and `check_vram` would
+    // otherwise each re-read the same two files.
+    let model_sizes = ModelSizes {
+        cpu: model_file_bytes(&config.face.cpu_profile.model_path),
+        cuda: model_file_bytes(&config.face.cuda_profile.model_path),
+    };
+
     check_shapes(config, &mut report);
-    check_host_memory(config, &mut report);
-    check_deadlines(config, device, &mut report);
-    check_vram(config, device, &mut report);
+    check_host_memory(config, &model_sizes, &mut report);
+    check_deadlines(config, device, &model_sizes, &mut report);
+    check_vram(config, device, &model_sizes, &mut report);
 
     report
+}
+
+/// The two profiles' model file sizes, resolved once per `validate()` call.
+struct ModelSizes {
+    cpu: Option<u64>,
+    cuda: Option<u64>,
+}
+
+/// One `[face.*_profile]` section's inputs to the deadline-feasibility check.
+struct DeadlineProfile<'a> {
+    name: &'static str,
+    path: &'a Path,
+    device_name: &'static str,
+    bandwidth: f64,
+    is_active: bool,
+    model_bytes: Option<u64>,
 }
 
 /// Cheap structural checks that do not need arithmetic to justify.
 fn check_shapes(config: &Config, report: &mut ValidationReport) {
     let tt = &config.engine.transposition;
-    if !tt.shard_count.is_power_of_two()
-        || tt.shard_count < crate::engine::TranspositionTable::MIN_SHARDS
+    // Only checked when the table is actually built from it: `main.rs` calls
+    // `TranspositionTable::disabled()` — which hardcodes `MIN_SHARDS` and never
+    // reads `shard_count` — when `tt.enabled` is false, so refusing to start
+    // over a value the running process would never touch would be validation
+    // stricter than the precondition it exists to protect.
+    if tt.enabled
+        && (!tt.shard_count.is_power_of_two()
+            || tt.shard_count < crate::engine::TranspositionTable::MIN_SHARDS)
     {
         report
             .errors
@@ -200,6 +230,28 @@ fn check_shapes(config: &Config, report: &mut ValidationReport) {
         });
     }
 
+    // `engine.lab.time_budget_ms` is expected to stay 0 (it gets its own
+    // warning below when it isn't, per §16.2), which makes `iterations` the
+    // only knob that can give a lab run a search budget at all — the same
+    // zero/zero degenerate case the check above catches for Play Mode.
+    if config.engine.lab.iterations == 0 && config.engine.lab.time_budget_ms == 0 {
+        report.errors.push(ValidationError::MustBePositive {
+            key: "engine.lab.iterations (or engine.lab.time_budget_ms)",
+        });
+    }
+
+    // `CircuitBreaker::new` clamps a configured `0` up to `1` (`.max(1)`,
+    // `src/face/breaker.rs`) rather than rejecting it, so a `0` here would
+    // otherwise resolve to a runtime value that silently disagrees with what
+    // was configured.
+    if config.face.circuit_breaker.failure_threshold == 0 {
+        report.warnings.push(
+            "face.circuit_breaker.failure_threshold = 0 is clamped to 1 at runtime; the \
+             breaker will trip on the first counted failure"
+                .to_string(),
+        );
+    }
+
     // These two keys are accepted and validated like any other, but nothing
     // reads them yet: `CircuitBreaker::new` hardcodes a single half-open
     // probe token (`src/face/breaker.rs`), and `Sampler` does not filter by
@@ -236,7 +288,7 @@ fn check_shapes(config: &Config, report: &mut ValidationReport) {
 
 /// The host-memory ceiling. Computed across sections, because no single section
 /// can see the total it contributes to.
-fn check_host_memory(config: &Config, report: &mut ValidationReport) {
+fn check_host_memory(config: &Config, model_sizes: &ModelSizes, report: &mut ValidationReport) {
     let db = &config.database;
     let tt = &config.engine.transposition;
 
@@ -274,7 +326,7 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
         ),
         (
             "face (staging + CPU-profile weights)",
-            face_host_bytes(config),
+            face_host_bytes(config, model_sizes.cpu),
         ),
         (
             "rust runtime and allocator overhead",
@@ -314,12 +366,11 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
     }
 }
 
-fn face_host_bytes(config: &Config) -> u64 {
+fn face_host_bytes(config: &Config, cpu_model_bytes: Option<u64>) -> u64 {
     if !config.face.enabled {
         return 0;
     }
-    let weights = model_file_bytes(&config.face.cpu_profile.model_path).unwrap_or(0);
-    FACE_STAGING_MB * MB + weights
+    FACE_STAGING_MB * MB + cpu_model_bytes.unwrap_or(0)
 }
 
 /// Deadline feasibility, checked for **both** profiles (§23.1).
@@ -329,30 +380,45 @@ fn face_host_bytes(config: &Config) -> u64 {
 /// `max_tokens × model_bytes / bandwidth`. It is not trying to predict latency.
 /// It is trying to catch a configuration that is wrong by a factor of two or
 /// more, which is the only kind of error this class of defect has ever taken.
-fn check_deadlines(config: &Config, device: DeviceKind, report: &mut ValidationReport) {
+fn check_deadlines(
+    config: &Config,
+    device: DeviceKind,
+    model_sizes: &ModelSizes,
+    report: &mut ValidationReport,
+) {
     if !config.face.enabled {
         return;
     }
 
-    let profiles: [(&'static str, &Path, &'static str, f64, bool); 2] = [
-        (
-            "cuda_profile",
-            config.face.cuda_profile.model_path.as_path(),
-            "cuda",
-            CUDA_BANDWIDTH_BYTES_PER_SEC,
-            matches!(device, DeviceKind::Cuda { .. }),
-        ),
-        (
-            "cpu_profile",
-            config.face.cpu_profile.model_path.as_path(),
-            "cpu",
-            CPU_BANDWIDTH_BYTES_PER_SEC,
-            matches!(device, DeviceKind::Cpu),
-        ),
+    let profiles = [
+        DeadlineProfile {
+            name: "cuda_profile",
+            path: config.face.cuda_profile.model_path.as_path(),
+            device_name: "cuda",
+            bandwidth: CUDA_BANDWIDTH_BYTES_PER_SEC,
+            is_active: matches!(device, DeviceKind::Cuda { .. }),
+            model_bytes: model_sizes.cuda,
+        },
+        DeadlineProfile {
+            name: "cpu_profile",
+            path: config.face.cpu_profile.model_path.as_path(),
+            device_name: "cpu",
+            bandwidth: CPU_BANDWIDTH_BYTES_PER_SEC,
+            is_active: matches!(device, DeviceKind::Cpu),
+            model_bytes: model_sizes.cpu,
+        },
     ];
 
-    for (profile, path, device_name, bandwidth, is_active) in profiles {
-        let Some(model_bytes) = model_file_bytes(path) else {
+    for DeadlineProfile {
+        name: profile,
+        path,
+        device_name,
+        bandwidth,
+        is_active,
+        model_bytes,
+    } in profiles
+    {
+        let Some(model_bytes) = model_bytes else {
             // A missing model file is not a configuration error: the breaker
             // opens and the service runs on canned lines (§17.2). It does mean
             // the deadline cannot be checked, which is worth saying.
@@ -407,12 +473,17 @@ pub fn projected_vram_mb(model_bytes: u64) -> u64 {
 /// Exceeding it is a refusal to load, not a CUDA OOM: the error names the
 /// figure and the budget, which is information a driver error message does not
 /// carry.
-fn check_vram(config: &Config, device: DeviceKind, report: &mut ValidationReport) {
+fn check_vram(
+    config: &Config,
+    device: DeviceKind,
+    model_sizes: &ModelSizes,
+    report: &mut ValidationReport,
+) {
     if !config.face.enabled || !matches!(device, DeviceKind::Cuda { .. }) {
         return;
     }
 
-    let Some(model_bytes) = model_file_bytes(&config.face.cuda_profile.model_path) else {
+    let Some(model_bytes) = model_sizes.cuda else {
         return;
     };
 

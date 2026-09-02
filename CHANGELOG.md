@@ -37,6 +37,31 @@ the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The error model from §9.1, including the deliberate absence of a
   `face_unavailable` error status.
 
+### Fixed
+
+- `send_durable`'s payload and acknowledgement now travel as one channel
+  message (`WriteOp::Durable`) instead of two, closing a window where a
+  saturated channel could accept the payload and then fail to enqueue the
+  barrier that acks it — reporting `Degraded` for a write already queued for
+  commit and inviting a retry that would double-submit it.
+- `/health`'s `transposition_table.mode` now reads `engine.play.transposition_mode`,
+  matching the section the adjacent `evaluator` field already reads, instead of
+  `engine.lab.transposition_mode`.
+- `FaceStatus::unloaded` reports `vram_budget_mb` from `limits.max_vram_mb` on
+  the CUDA path instead of always `None`.
+- `Board::from_bytes` now takes `format_version` as an explicit parameter, like
+  `GameRecord::decode_moves`, so a caller cannot decode a persisted board
+  without having looked at it (§13.7).
+- Commentary sanitization now strips U+061C (Arabic Letter Mark) alongside the
+  other bidirectional formatting controls (§7.7).
+- CI: `actions/checkout` no longer persists Git credentials past the job; the
+  `gate`/`cuda-compile`/`portable-build` jobs pin the toolchain to the exact
+  version `rust-toolchain.toml` declares instead of `dtolnay/rust-toolchain`'s
+  `stable`, which does not read that file; `check-cuda` now runs Clippy against
+  the `cuda` feature, not just `cargo check`, so that path is actually linted;
+  the nightly `load` job is disabled until `tests/load.rs`'s `todo!()` bodies
+  are implemented, instead of failing every scheduled run.
+
 ### Not yet implemented
 
 Move generation, tree search, the writer actor loop, the lab worker pool, and

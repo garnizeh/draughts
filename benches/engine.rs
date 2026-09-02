@@ -49,7 +49,7 @@ fn board_encoding(c: &mut Criterion) {
 
     group.bench_function("encode", |b| b.iter(|| black_box(&board).to_bytes()));
     group.bench_function("decode", |b| {
-        b.iter(|| Board::from_bytes(black_box(&bytes)))
+        b.iter(|| Board::from_bytes(black_box(&bytes), draughts::CURRENT_FORMAT_VERSION))
     });
 
     group.finish();

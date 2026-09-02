@@ -7,6 +7,7 @@ use rusqlite::{Connection, OpenFlags};
 
 use super::DbResult;
 use crate::config::DatabaseConfig;
+use crate::config::validate::{GB, MB};
 
 /// Open one read-only connection with the reader pragmas applied.
 ///
@@ -26,7 +27,7 @@ pub fn open_reader(config: &DatabaseConfig) -> DbResult<Connection> {
          PRAGMA foreign_keys = ON;",
         busy = config.busy_timeout_ms,
         cache_kib = config.reader_cache_mb * 1024,
-        mmap = config.mmap_size_gb * 1024 * 1024 * 1024,
+        mmap = config.mmap_size_gb.saturating_mul(GB),
     ))?;
 
     Ok(conn)
@@ -62,8 +63,8 @@ pub fn open_writer(config: &DatabaseConfig) -> DbResult<Connection> {
          PRAGMA temp_store = MEMORY;",
         busy = config.busy_timeout_ms,
         cache_kib = config.writer_cache_mb * 1024,
-        mmap = config.mmap_size_gb * 1024 * 1024 * 1024,
-        journal = config.journal_size_limit_mb * 1024 * 1024,
+        mmap = config.mmap_size_gb.saturating_mul(GB),
+        journal = config.journal_size_limit_mb.saturating_mul(MB),
     ))?;
 
     Ok(conn)

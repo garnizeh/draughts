@@ -5,6 +5,7 @@
 //! own legality; nothing in it knows that anything above it exists.
 
 pub mod board;
+pub mod hashing;
 pub mod moves;
 pub mod zobrist;
 
