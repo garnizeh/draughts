@@ -9,6 +9,11 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
 
+# Least privilege: nothing here needs to write to the repo. The baselines job
+# only needs to upload its own workflow artifact, which contents: read permits.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0

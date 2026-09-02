@@ -25,13 +25,13 @@ for table in games positions; do
         # column list, which is enough to see whether the column is named.
         statement="$(sed -n "${line},$((line + 12))p" "$file")"
 
-        if ! grep -q 'format_version' <<<"$statement"; then
+        if ! grep -qi 'format_version' <<<"$statement"; then
             echo "error: ${file}:${line} inserts into ${table} without naming format_version." >&2
             echo "       See §13.7 — the column's DEFAULT exists for the v1.0" >&2
             echo "       migration, not for new write paths." >&2
             status=1
         fi
-    done < <(grep -rEn --include='*.rs' "INSERT +INTO +${table}\b" src 2>/dev/null || true)
+    done < <(grep -rEni --include='*.rs' "INSERT +INTO +${table}\b" src 2>/dev/null || true)
 done
 
 # Every decode of a versioned BLOB must have dispatched on the version. The

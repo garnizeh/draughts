@@ -11,7 +11,7 @@ For an existing v1.0 deployment, in order:
 | 5 | Add `[face.circuit_breaker]`, `[engine.transposition]`, `[database.writer]` | All have working defaults; set them explicitly anyway |
 | 6 | Raise the `[database]` cache and mmap settings | Per-role, per [§11.1](11-database-architecture.md#111-sqlite-runtime-configuration) — do not apply the writer's 4 GB cache to readers |
 | 7 | Stop and remove the Ollama service | It is no longer contacted; leaving it running wastes memory |
-| 8 | Build with `--features cuda` if the host has a device, and deploy; verify `/health` | `face.model_loaded: true`, `face.circuit: "closed"`, `face.device` matching `face.device_requested`, `transposition_table.entries` climbing ([§22.1](22-deployment-model.md#221-mvp-single-machine-deployment)) |
+| 8 | Build with `just build-cuda` if the host has a device, and deploy; verify `/health` | `face.model_loaded: true`, `face.circuit: "closed"`, `face.device` matching `face.device_requested`, `transposition_table.entries` climbing ([§22.1](22-deployment-model.md#221-mvp-single-machine-deployment)) |
 | 9 | Run a 1 000-game batch with `reproducible: true` | Confirms determinism survived the transposition table |
 | 10 | Re-baseline the [§20.9](20-testing-strategy.md#209-performance-regression-baselines) metrics | The v1.0 numbers are meaningless now |
 

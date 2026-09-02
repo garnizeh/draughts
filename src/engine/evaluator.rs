@@ -17,23 +17,34 @@ use crate::rules::{GameResult, GameState, GameStatus, Move, Side};
 pub struct EvaluatorIdentity(u64);
 
 impl EvaluatorIdentity {
+    fn fold(hash: u64, bytes: &[u8]) -> u64 {
+        let mut hash = hash;
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
+        }
+        hash
+    }
+
+    /// Fold a variable-length field prefixed by its length, so that adjacent
+    /// variable-length fields cannot be reinterpreted as each other —
+    /// `("nn", "ab")` and `("nna", "b")` must not hash to the same value just
+    /// because their concatenation, `nnab`, is the same bytes.
+    fn fold_field(hash: u64, bytes: &[u8]) -> u64 {
+        let hash = Self::fold(hash, &(bytes.len() as u64).to_le_bytes());
+        Self::fold(hash, bytes)
+    }
+
     /// Build an identity from a name and its numeric parameters.
     #[must_use]
     pub fn new(name: &str, params: &[(&str, u64)]) -> Self {
         let mut hash: u64 = 0xCBF2_9CE4_8422_2325;
-        let mut fold_bytes = |bytes: &[u8]| {
-            for byte in bytes {
-                hash ^= u64::from(*byte);
-                hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
-            }
-        };
-
-        fold_bytes(name.as_bytes());
+        hash = Self::fold_field(hash, name.as_bytes());
         for (key, value) in params {
-            fold_bytes(key.as_bytes());
-            fold_bytes(&value.to_le_bytes());
+            hash = Self::fold_field(hash, key.as_bytes());
+            // Fixed-width: no ambiguity with an adjacent field, no framing needed.
+            hash = Self::fold(hash, &value.to_le_bytes());
         }
-
         Self(hash)
     }
 
@@ -41,12 +52,8 @@ impl EvaluatorIdentity {
     /// model checkpoint id.
     #[must_use]
     pub fn from_str(name: &str, discriminator: &str) -> Self {
-        let mut identity = Self::new(name, &[]);
-        for byte in discriminator.as_bytes() {
-            identity.0 ^= u64::from(*byte);
-            identity.0 = identity.0.wrapping_mul(0x0000_0100_0000_01B3);
-        }
-        identity
+        let identity = Self::new(name, &[]);
+        Self(Self::fold_field(identity.0, discriminator.as_bytes()))
     }
 
     #[must_use]
@@ -204,6 +211,17 @@ mod tests {
         assert_ne!(
             EvaluatorIdentity::from_str("nn_value_v1", "ckpt-a"),
             EvaluatorIdentity::from_str("nn_value_v1", "ckpt-b")
+        );
+    }
+
+    /// The field boundary must be part of the hash, not just the bytes: two
+    /// (name, discriminator) pairs that concatenate to the same byte stream
+    /// must not collide just because the boundary between them moved.
+    #[test]
+    fn a_field_boundary_shift_does_not_collide() {
+        assert_ne!(
+            EvaluatorIdentity::from_str("nn", "ab"),
+            EvaluatorIdentity::from_str("nna", "b")
         );
     }
 

@@ -50,6 +50,16 @@ pub fn run(conn: &mut Connection) -> DbResult<u32> {
         |row| row.get(0),
     )?;
 
+    // An older binary pointed at a newer database: applying no migration and
+    // reporting `target_version()` would silently serve a schema this build
+    // does not declare compatible. Refuse instead.
+    if current > target_version() {
+        return Err(DbError::SchemaTooNew {
+            found: current,
+            known: target_version(),
+        });
+    }
+
     for migration in MIGRATIONS.iter().filter(|m| m.version > current) {
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
@@ -145,6 +155,25 @@ mod tests {
                 "migration versions must start at 1 and not skip"
             );
         }
+    }
+
+    /// A database newer than this binary must not be silently served: a
+    /// rollback deployment must fail loudly rather than mis-read a schema it
+    /// does not declare compatible.
+    #[test]
+    fn a_schema_newer_than_this_binary_is_refused() {
+        let mut conn = migrated();
+        conn.execute(
+            "INSERT INTO schema_migrations (version, name) VALUES (?1, ?2)",
+            rusqlite::params![target_version() + 1, "from_the_future"],
+        )
+        .unwrap();
+
+        let result = run(&mut conn);
+        assert!(
+            matches!(result, Err(DbError::SchemaTooNew { .. })),
+            "expected SchemaTooNew, got {result:?}"
+        );
     }
 
     /// §13.7 as a schema-level guarantee: every table carrying a BLOB whose

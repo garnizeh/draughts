@@ -43,10 +43,10 @@ Both profile models ship because the device can change between one boot and the 
 
 ```bash
 # Portable build: no CUDA dependency, runs on a machine with no driver.
-cargo build --release
+just build-release
 
 # Target-host build: adds the CUDA path. Ampere GA10x is compute capability 8.6.
-CUDA_COMPUTE_CAP=86 cargo build --release --features cuda
+CUDA_COMPUTE_CAP=86 just build-cuda
 
 ./target/release/draughts --config draughts.toml
 ```

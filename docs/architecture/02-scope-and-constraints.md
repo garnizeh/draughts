@@ -53,7 +53,7 @@ The engine is the only authoritative move generator. The Face layer receives an 
 | RAM | **64 GB** — 2 × 32 GB DDR4-2400 ECC RDIMM |
 | Memory bandwidth | **Two populated channels of four; ~38 GB/s peak, ~25–30 GB/s achievable.** This is a first-class constraint, not a footnote: it sizes the Face model ([§7.5](07-face-llm-layer.md#75-model-selection-and-memory-budget)) and bounds transposition-table probe throughput ([§16.3](16-memory-strategy.md#163-transposition-table-sizing)) |
 | CPU | **Intel Xeon E5-2690 v4** — 14 physical cores / 28 threads, 2.6 GHz base, 3.5 GHz turbo, 35 MB L3, one NUMA node. Correctness must hold at 2 cores |
-| GPU | **NVIDIA GeForce RTX 3050, 6 GB GDDR6**, CUDA 13.2, compute capability 8.6. Used by the Face layer by default and by nothing else. **No component may require it**, hard-fail without it, or behave differently in its absence beyond being slower ([§7.4.1](07-face-llm-layer.md#741-device-selection)) |
+| GPU | **NVIDIA GeForce RTX 3050, 6 GB GDDR6**, CUDA 13.2, compute capability 8.6. Used by the Face layer by default and by nothing else. **No component may require it**, hard-fail without it, or change *gameplay* semantics in its absence. The Face layer is the one exception: it runs a smaller CPU-profile model in the GPU's absence ([§7.5.4](07-face-llm-layer.md#754-two-profiles-not-one-model-path)), so commentary content can differ even though engine behavior does not ([§7.4.1](07-face-llm-layer.md#741-device-selection)) |
 | Storage | Local SSD/NVMe. The lab database is expected to reach hundreds of GB over its life |
 | OS | Linux primary; macOS supported for development (CPU path only) |
 

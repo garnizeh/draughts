@@ -68,7 +68,7 @@ Per game: ~25 * (110 + 640)                -> ~18 KB
 
 18 GB per million games is comfortable. 100M games would be ~1.8 TB, which is a disk-provisioning decision rather than an architectural one, and is the point at which batch-level pruning ([§16.5](16-memory-strategy.md#165-storage-controls)) becomes routine rather than optional.
 
-At the 1.4 throughput target of 600–1 200 games/minute ([Appendix B](appendix-b-performance-targets.md)), a million games is roughly 15–28 hours of continuous lab time. That is the figure to plan a batch against — the default profile writes ~18 GB per day of running, so disk, not RAM, is what a long campaign consumes.
+At the 1.4 throughput target of 600–1 200 games/minute ([Appendix B](appendix-b-performance-targets.md)), a million games is roughly 14–28 hours of continuous lab time, and at ~18 KB/game that same throughput writes roughly 15.6–31.1 GB per day of continuous running. Provision disk against the top of that range, not the per-million-games figure — disk, not RAM, is what a long campaign consumes.
 
 ---
 

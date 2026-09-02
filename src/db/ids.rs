@@ -8,7 +8,11 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 /// A block of ids owned exclusively by one worker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// Deliberately not `Copy`: a lease that could be implicitly duplicated could
+/// have `take()` called on both copies, issuing the same id twice and
+/// producing a primary-key collision at insert time.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdLease {
     next: i64,
     end: i64,

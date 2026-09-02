@@ -128,7 +128,14 @@ impl GameRecord {
             });
         }
 
-        let (pairs, _remainder) = blob.as_chunks::<2>();
+        let (pairs, remainder) = blob.as_chunks::<2>();
+        if !remainder.is_empty() {
+            return Err(super::DbError::CorruptEncoding(format!(
+                "games.moves BLOB has odd length {} (format_version {format_version})",
+                blob.len()
+            )));
+        }
+
         Ok(pairs
             .iter()
             .map(|pair| Move::from_u16(u16::from_le_bytes(*pair)))

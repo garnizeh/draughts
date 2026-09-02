@@ -543,7 +543,7 @@ Response:
   "writer": {
     "queue_depth": 18422,
     "queue_capacity": 262144,
-    "queue_high_water": 291044,
+    "queue_high_water": 258392,
     "rows_committed": 1841002331,
     "commits": 36820,
     "avg_commit_ms": 397,

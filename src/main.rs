@@ -130,7 +130,7 @@ fn run(cli: Cli) -> Result<()> {
     // 8 · Resolve the device (done above) and load the matching profile's model
     //     if `warm_on_start`; on failure — including a CUDA OOM — open the
     //     circuit permanently and continue (§17.2).
-    let face_status = FaceStatus::unloaded_cpu(&config);
+    let face_status = FaceStatus::unloaded(&config, device_kind);
     let _ = device;
 
     let state = AppState::new(

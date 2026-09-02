@@ -17,10 +17,10 @@ flowchart TB
         LAB["<b>Training Lab Runner</b><br/>Headless CPU vs CPU<br/>N worker threads<br/>Sampling / cancellation"]
         FACE["<b>Face Layer</b><br/>CircuitBreaker §7.8<br/>CandleFaceAdapter<br/>CannedFaceAdapter"]
 
-        TT["<b>GLOBAL TRANSPOSITION TABLE</b><br/>Arc&lt;DashMap&lt;TtKey, TtEntry&gt;&gt;<br/>lock-free, sharded, ~24 GB"]
+        TT["<b>GLOBAL TRANSPOSITION TABLE</b><br/>Arc&lt;DashMap&lt;TtKey, TtEntry&gt;&gt;<br/>sharded, ~24 GB"]
         CANDLE["<b>Candle Inference Runtime</b><br/>candle-core + candle-transformers<br/>quantized GGUF<br/>one resolved Device §7.4.1"]
 
-        CHAN["<b>MPSC WRITE CHANNEL</b> (bounded)<br/>512k messages buffered in RAM"]
+        CHAN["<b>MPSC WRITE CHANNEL</b> (bounded)<br/>262 144 messages buffered in RAM, ~2 GB"]
         WRITER["<b>DB WRITER ACTOR</b> (1 thread)<br/>50k+ rows per transaction<br/>BEGIN IMMEDIATE / prepared stmts"]
         READPOOL["<b>SQLite Read Pool</b><br/>N read-only WAL connections<br/>status pages, exports"]
     end

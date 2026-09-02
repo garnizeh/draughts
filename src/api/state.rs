@@ -27,11 +27,16 @@ pub struct FaceStatus {
 }
 
 impl FaceStatus {
-    /// The state of a process that resolved to CPU and loaded nothing: what
-    /// `/health` reports when no model file is present, which §20.3 requires to
+    /// The state of a process that has loaded nothing yet, at the given
+    /// resolved device: what `/health` reports before `warm_on_start`
+    /// completes, or when no model file is present, which §20.3 requires to
     /// be a fully playable configuration.
     #[must_use]
-    pub fn unloaded_cpu(config: &Config) -> Self {
+    pub fn unloaded(config: &Config, device: DeviceKind) -> Self {
+        let model_id = match device {
+            DeviceKind::Cuda { .. } => &config.face.cuda_profile.model_id,
+            DeviceKind::Cpu => &config.face.cpu_profile.model_id,
+        };
         Self {
             enabled: config.face.enabled,
             provider: "canned",
@@ -39,14 +44,21 @@ impl FaceStatus {
                 config.face.device,
                 config.face.device_index,
             ),
-            device: DeviceKind::Cpu,
+            device,
             device_name: None,
-            model_id: config.face.cpu_profile.model_id.clone(),
+            model_id: model_id.clone(),
             model_loaded: false,
             resident_mb: 0,
             vram_used_mb: 0,
             vram_budget_mb: None,
         }
+    }
+
+    /// [`Self::unloaded`] at `DeviceKind::Cpu`, for tests and fixtures that do
+    /// not resolve a real device.
+    #[must_use]
+    pub fn unloaded_cpu(config: &Config) -> Self {
+        Self::unloaded(config, DeviceKind::Cpu)
     }
 }
 

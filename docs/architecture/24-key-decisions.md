@@ -12,7 +12,7 @@
 | Positions/edges sampled | Prevents storage explosion; density unchanged by the 1.4 re-baseline, because halving RAM changes what is cached, not what is written | 1.0 |
 | Single writer DB pattern | Avoids SQLite write contention | 1.0 |
 | Headless lab runner | Enables training without UI overhead | 1.0 |
-| **Global lock-free transposition table (`DashMap`)** | **Self-play revisits positions constantly. Memory is no longer scarce; recomputation is. Shared across all workers, not per-search** | **1.1** |
+| **Global sharded transposition table (`DashMap`)** | **Self-play revisits positions constantly. Memory is no longer scarce; recomputation is. Shared across all workers, not per-search — `DashMap` shards the map and guards each shard with its own lock, rather than one lock for the whole table** | **1.1** |
 | **Two transposition modes, not one** | **A shared cache written by concurrent games breaks bit-reproducibility unless entries are position-pure. Rather than choose between speed and replayability, both are offered and the choice is recorded per batch** | **1.1** |
 | **MPSC actor with 50k-row transactions** | **SQLite permits one writer. Rather than fight it, make that writer maximally efficient and absorb bursts in RAM** | **1.1** |
 | **Bounded, not unbounded, write channel** | **An unbounded channel trades a visible stall for an invisible OOM. Backpressure is a designed behavior with three per-producer policies** | **1.1** |

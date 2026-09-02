@@ -166,6 +166,15 @@ impl CircuitBreaker {
     }
 
     pub fn on_success(&self) {
+        // A request admitted while `Closed` can still be in flight when three
+        // other requests trip the circuit to `Open`; its eventual success is
+        // stale and must not force the circuit shut ahead of its cooldown —
+        // only a request that actually observed `HalfOpen` (the admitted
+        // probe) may close it. `Closed` handles the ordinary case; `Open`
+        // silently drops the stale result.
+        if self.state() == CircuitState::Open {
+            return;
+        }
         self.consecutive_failures.store(0, Ordering::Release);
         self.state
             .store(CircuitState::Closed as u8, Ordering::Release);
@@ -186,6 +195,14 @@ impl CircuitBreaker {
             self.opened_at_ms.store(now_ms, Ordering::Release);
             self.state
                 .store(CircuitState::Open as u8, Ordering::Release);
+            // A reopened circuit must be probeable again after its next
+            // cooldown. Only `open_permanently` withholds the token — leaving
+            // it spent here would strand the circuit in `HalfOpen` forever
+            // after the first failed probe, since only `on_success` restores
+            // it and no further probe would ever be admitted to succeed.
+            if !self.permanently_open.load(Ordering::Acquire) {
+                self.half_open_token.store(true, Ordering::Release);
+            }
             self.trips.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -315,6 +332,46 @@ mod tests {
         assert_eq!(breaker.trips_total(), 2);
         assert_eq!(breaker.admit(300_102), Admission::ShortCircuit);
         assert_eq!(breaker.cooldown_remaining_seconds(300_102), 299);
+    }
+
+    /// §7.8: a success from a request admitted before the circuit tripped
+    /// must not be able to force it closed once it has reopened — only the
+    /// admitted probe's own outcome may do that.
+    #[test]
+    fn a_stale_success_does_not_close_an_open_circuit() {
+        let breaker = breaker();
+        for tick in 0..3 {
+            breaker.on_failure(tick, &FaceError::Timeout);
+        }
+        assert_eq!(breaker.state(), CircuitState::Open);
+
+        // A success arrives after the trip, from a request admitted earlier.
+        breaker.on_success();
+
+        assert_eq!(breaker.state(), CircuitState::Open);
+        assert_eq!(
+            breaker.admit(1),
+            Admission::ShortCircuit,
+            "cooldown must still apply"
+        );
+    }
+
+    /// A reopened (but not permanently open) circuit must recover: the second
+    /// cooldown must produce a second probe, not permanent silence.
+    #[test]
+    fn a_reopened_circuit_admits_a_probe_after_the_next_cooldown() {
+        let breaker = breaker();
+        for tick in 0..3 {
+            breaker.on_failure(tick, &FaceError::Timeout);
+        }
+
+        assert_eq!(breaker.admit(300_100), Admission::Allow);
+        breaker.on_failure(300_101, &FaceError::Timeout);
+
+        assert_eq!(breaker.admit(300_102), Admission::ShortCircuit);
+        assert_eq!(breaker.admit(600_200), Admission::Allow);
+        breaker.on_success();
+        assert_eq!(breaker.state(), CircuitState::Closed);
     }
 
     /// §17.2: a model that could not load at all does not get probed back to

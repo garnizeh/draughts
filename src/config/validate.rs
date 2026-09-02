@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use super::Config;
+use super::{CircuitBreakerConfig, Config};
 use crate::face::DeviceKind;
 
 // --- Host memory, §16.1 / §16.3 --------------------------------------------
@@ -123,7 +123,9 @@ impl ValidationReport {
     }
 
     pub fn projected_memory_bytes(&self) -> u64 {
-        self.memory_breakdown.iter().map(|(_, bytes)| bytes).sum()
+        self.memory_breakdown
+            .iter()
+            .fold(0u64, |total, (_, bytes)| total.saturating_add(*bytes))
     }
 }
 
@@ -198,6 +200,29 @@ fn check_shapes(config: &Config, report: &mut ValidationReport) {
         });
     }
 
+    // These two keys are accepted and validated like any other, but nothing
+    // reads them yet: `CircuitBreaker::new` hardcodes a single half-open
+    // probe token (`src/face/breaker.rs`), and `Sampler` does not filter by
+    // visit count (`src/lab/sampling.rs`). An operator who changes either
+    // away from its default sees no behavior change and, without this
+    // warning, no indication why.
+    if config.face.circuit_breaker.half_open_probes
+        != CircuitBreakerConfig::default().half_open_probes
+    {
+        report.warnings.push(
+            "face.circuit_breaker.half_open_probes is not yet wired to the breaker, which \
+             always admits exactly one probe; this value has no effect"
+                .to_string(),
+        );
+    }
+    if config.lab.sampling.only_store_high_visit_edges {
+        report.warnings.push(
+            "lab.sampling.only_store_high_visit_edges is not yet wired to the sampler; this \
+             value has no effect"
+                .to_string(),
+        );
+    }
+
     if config.engine.lab.time_budget_ms != 0 {
         report.warnings.push(
             "engine.lab.time_budget_ms is non-zero; a time-bounded search is a \
@@ -215,8 +240,12 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
     let db = &config.database;
     let tt = &config.engine.transposition;
 
+    // Every projection is `saturating`: TOML accepts any `u64`, and a
+    // mistyped value (`capacity_entries = 1_000_000_000_000_000_000`) must
+    // saturate to "obviously over budget" rather than wrap to a small number
+    // that passes the check it exists to enforce.
     let tt_bytes = if tt.enabled {
-        tt.capacity_entries as u64 * TT_BYTES_PER_ENTRY
+        (tt.capacity_entries as u64).saturating_mul(TT_BYTES_PER_ENTRY)
     } else {
         0
     };
@@ -225,16 +254,23 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
         ("engine.transposition.capacity_entries", tt_bytes),
         (
             "database.writer.channel_capacity",
-            db.writer.channel_capacity as u64 * WRITE_MESSAGE_BYTES,
+            (db.writer.channel_capacity as u64).saturating_mul(WRITE_MESSAGE_BYTES),
         ),
-        ("database.writer_cache_mb", db.writer_cache_mb * MB),
+        (
+            "database.writer_cache_mb",
+            db.writer_cache_mb.saturating_mul(MB),
+        ),
         (
             "database.reader_cache_mb × read_pool_size",
-            db.reader_cache_mb * db.read_pool_size as u64 * MB,
+            db.reader_cache_mb
+                .saturating_mul(db.read_pool_size as u64)
+                .saturating_mul(MB),
         ),
         (
             "engine.lab.worker_threads (MCTS arenas)",
-            config.engine.lab.worker_threads as u64 * MCTS_ARENA_MB * MB,
+            (config.engine.lab.worker_threads as u64)
+                .saturating_mul(MCTS_ARENA_MB)
+                .saturating_mul(MB),
         ),
         (
             "face (staging + CPU-profile weights)",
@@ -247,7 +283,7 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
     ];
 
     let projected = report.projected_memory_bytes();
-    let budget = config.limits.max_total_memory_gb * GB;
+    let budget = config.limits.max_total_memory_gb.saturating_mul(GB);
 
     if projected > budget {
         let (largest_key, largest_bytes) = report
@@ -268,7 +304,7 @@ fn check_host_memory(config: &Config, report: &mut ValidationReport) {
     // `mmap_size` is a virtual mapping served by the page cache. It competes for
     // the same physical pages as the OS reservation but is not private process
     // memory, so it is deliberately excluded from the sum above (§16.1).
-    if db.mmap_size_gb * GB > budget {
+    if db.mmap_size_gb.saturating_mul(GB) > budget {
         report.warnings.push(format!(
             "database.mmap_size_gb = {} exceeds the whole memory budget; it is \
              not counted as process memory, but a window this large is not free \
@@ -408,7 +444,7 @@ pub fn check_against_host(config: &Config, report: &mut ValidationReport) {
         return;
     }
 
-    let budget = config.limits.max_total_memory_gb * GB;
+    let budget = config.limits.max_total_memory_gb.saturating_mul(GB);
     if budget > host_bytes {
         report.warnings.push(format!(
             "limits.max_total_memory_gb = {} GB exceeds the host's {:.1} GB of \
@@ -430,6 +466,26 @@ mod tests {
         assert!(
             report.is_ok(),
             "the committed defaults must validate: {:?}",
+            report.errors
+        );
+    }
+
+    /// A mistyped, absurdly large value must saturate toward "over budget"
+    /// rather than wrap past `u64::MAX` back into a value the budget check
+    /// reads as fine — the exact failure mode unchecked multiplication has.
+    #[test]
+    fn a_wildly_oversized_value_saturates_instead_of_wrapping() {
+        let mut config = Config::default();
+        config.engine.transposition.capacity_entries = usize::MAX;
+
+        let report = validate(&config, DeviceKind::Cpu);
+
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::MemoryBudgetExceeded { .. })),
+            "expected a memory budget error, got {:?}",
             report.errors
         );
     }

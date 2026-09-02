@@ -5,7 +5,7 @@ agent working here reaches the same conclusions a contributor would after
 reading `CONTRIBUTING.md` and `docs/architecture/` — and reaches them before
 writing code rather than after CI rejects it.
 
-```
+```text
 CLAUDE.md                       project instructions, loaded every session
 .claude/
   settings.json                 permissions, env, hooks

@@ -360,8 +360,15 @@ pub enum DeviceRequestConfig {
 }
 
 /// One device profile. Which one is live is decided by `select_device`, not here.
+///
+/// Deliberately no container-level `default`: with it, a `[face.cuda_profile]`
+/// table naming only `model_id` would silently fill `model_path` and
+/// `tokenizer_path` from `ModelProfile::default()` — the *CPU* profile's
+/// files — leaving a CUDA-labelled profile pointing at CPU weights. Without
+/// it, a partial table is a parse error naming the missing key, which is what
+/// [`Config::load`] promises.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, default)]
+#[serde(deny_unknown_fields)]
 pub struct ModelProfile {
     pub model_path: PathBuf,
     pub tokenizer_path: PathBuf,

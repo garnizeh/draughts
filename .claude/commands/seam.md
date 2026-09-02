@@ -16,6 +16,6 @@ Follow the `implement-seam` skill. In short:
 6. `just ci` until green.
 7. Move the item from "Not yet implemented" to "Added" in `CHANGELOG.md`.
 
-If the section does not settle a question the implementation needs answered,
-stop and say so rather than inventing an answer — that is how the architecture
-gets its next revision.
+If the section does not settle a question the implementation needs to be
+answered, stop and say so rather than inventing an answer — that is how the
+architecture gets its next revision.

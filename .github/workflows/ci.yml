@@ -12,6 +12,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: nothing here needs to write to the repo, comment on a PR,
+# or touch packages. Read access to check out the tree is all every job uses.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -82,8 +87,10 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - uses: extractions/setup-just@v4
+
       - name: Build the portable binary
-        run: cargo build --locked --release
+        run: just build-release
 
       - name: It must link and run
         run: |

@@ -67,6 +67,18 @@ pub enum Backpressure {
     Drop,
 }
 
+/// The outcome of a telemetry enqueue attempt.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TelemetryOutcome {
+    /// Accepted onto the channel.
+    Queued,
+    /// The channel was full; the row is lost and `dropped_telemetry` should
+    /// count it.
+    Dropped,
+    /// The writer thread is gone; there is no channel to queue onto.
+    WriterGone,
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WriterStats {
     pub queue_depth: usize,
@@ -98,11 +110,11 @@ impl WriterHandle {
     }
 
     /// Telemetry class: dropped rather than queued when the channel is full.
-    pub fn send_telemetry(&self, op: WriteOp) -> Backpressure {
+    pub fn send_telemetry(&self, op: WriteOp) -> TelemetryOutcome {
         match self.tx.try_send(op) {
-            Ok(()) => Backpressure::Block,
-            Err(TrySendError::Full(_)) => Backpressure::Drop,
-            Err(TrySendError::Disconnected(_)) => Backpressure::Drop,
+            Ok(()) => TelemetryOutcome::Queued,
+            Err(TrySendError::Full(_)) => TelemetryOutcome::Dropped,
+            Err(TrySendError::Disconnected(_)) => TelemetryOutcome::WriterGone,
         }
     }
 
@@ -116,10 +128,17 @@ impl WriterHandle {
             TrySendError::Disconnected(_) => DbError::WriterGone,
         })?;
 
+        // `try_send`, not `send`: this runs on a Tokio worker thread, and a
+        // blocking send on a saturated channel would park that worker and
+        // stall unrelated tasks. A full channel here gets the same 503 the
+        // enqueue above would have returned.
         let (ack_tx, ack_rx) = oneshot::channel();
         self.tx
-            .send(WriteOp::Flush(ack_tx))
-            .map_err(|_| DbError::WriterGone)?;
+            .try_send(WriteOp::Flush(ack_tx))
+            .map_err(|error| match error {
+                TrySendError::Full(_) => DbError::Degraded("write queue saturated".to_string()),
+                TrySendError::Disconnected(_) => DbError::WriterGone,
+            })?;
 
         ack_rx.await.map_err(|_| DbError::WriterGone)?
     }
@@ -135,11 +154,18 @@ impl WriterHandle {
     }
 
     /// Drain and stop. Called by the shutdown sequence, step 3 (§22.4).
+    ///
+    /// This is the one caller allowed to block for a slot: shutdown is a
+    /// one-shot, terminal call, but it must still not block the Tokio worker
+    /// that runs it, so the blocking send is offloaded to a blocking thread.
     pub async fn shutdown(&self) -> DbResult<()> {
         let (ack_tx, ack_rx) = oneshot::channel();
-        self.tx
-            .send(WriteOp::Shutdown(ack_tx))
-            .map_err(|_| DbError::WriterGone)?;
+        let tx = self.tx.clone();
+        tokio::task::spawn_blocking(move || tx.send(WriteOp::Shutdown(ack_tx)).is_ok())
+            .await
+            .map_err(|_| DbError::WriterGone)?
+            .then_some(())
+            .ok_or(DbError::WriterGone)?;
         ack_rx.await.map_err(|_| DbError::WriterGone)
     }
 }
@@ -224,7 +250,24 @@ mod tests {
 
         assert_eq!(
             handle.send_telemetry(WriteOp::Game(game())),
-            Backpressure::Drop
+            TelemetryOutcome::Dropped
+        );
+    }
+
+    /// §11.2.5: durable writes never block behind a full channel; they reject
+    /// with `DbError::Degraded` so the caller can return 503 and retry.
+    #[tokio::test]
+    async fn a_full_channel_returns_degraded_for_a_durable_write() {
+        let (tx, _rx) = crossbeam_channel::bounded(1);
+        let handle = WriterHandle::new(tx);
+
+        handle.send_bulk(WriteOp::Game(game())).expect("first fits");
+        assert_eq!(handle.queue_depth(), 1);
+
+        let result = handle.send_durable(WriteOp::Game(game())).await;
+        assert!(
+            matches!(result, Err(DbError::Degraded(_))),
+            "expected Degraded, got {result:?}"
         );
     }
 }

@@ -711,7 +711,7 @@ pub enum TtMode {
 | Cached: rollout sample means | **No** | Yes |
 | Replay from `(seed, config)` reproduces the game | Yes | No |
 | Expected speedup, random rollout MVP | ~1.5–2.5× (move-gen + terminal reuse) | ~4–8× (rollout reuse dominates) |
-| Expected speedup, future neural evaluator | Large in both modes; the forward pass is the cost |
+| Expected speedup, future neural evaluator | Large in both modes; the forward pass is the cost | Large in both modes; the forward pass is the cost |
 
 Defaults:
 

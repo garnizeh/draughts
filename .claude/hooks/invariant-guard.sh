@@ -35,12 +35,12 @@ esac
 findings=""
 
 # §19.6.5 property 3 — Device is constructed in exactly one function.
-if ! device_out="$(./scripts/check-device-construction.sh 2>&1)"; then
+if ! device_out="$(just device-check 2>&1)"; then
     findings+="${device_out}"$'\n'
 fi
 
 # §20.8 — every insert path names format_version.
-if ! format_out="$(./scripts/check-format-version.sh 2>&1)"; then
+if ! format_out="$(just format-version-check 2>&1)"; then
     findings+="${format_out}"$'\n'
 fi
 

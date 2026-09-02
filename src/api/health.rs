@@ -80,6 +80,11 @@ pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
         version: VERSION,
         engine: "mcts",
         evaluator: state.config.engine.play.evaluator.clone(),
+        // TODO(§11.2, §16.3): `sqlite_wal` and `transposition_table.resident_mb`
+        // below, and the whole `writer` block, are placeholder literals until
+        // pool/writer-actor introspection exists (§5.6, §5.2). They read as
+        // healthy regardless of actual state — do not treat this endpoint as a
+        // real backpressure signal until that wiring lands.
         sqlite_wal: true,
         schema_version: state.schema_version,
         face: FaceHealth {

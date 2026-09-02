@@ -78,7 +78,7 @@ Every value that moved when the assumed host was replaced with the real one. [Ap
 
 ## What did not change
 
-No structural decision was reopened. The `EvaluationStrategy` trait, the two transposition modes, the MPSC writer actor, the two durability classes, the circuit breaker, `format_version`, the API contract's shape, the schema, and the frontend are all untouched. The GPU arrived through the one-line `Device` seam [§19.6.5](19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve) was holding open for it, and no caller changed.
+No structural decision was reopened. The `EvaluationStrategy` trait, the two transposition modes, the MPSC writer actor, the two durability classes, the circuit breaker, `format_version`, the schema, and the frontend are all untouched. Request shapes are unchanged; `/health` alone was extended, with the six Face fields in the table above. The GPU arrived through the one-line `Device` seam [§19.6.5](19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve) was holding open for it, and no caller changed.
 
 ---
 

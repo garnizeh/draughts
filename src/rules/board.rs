@@ -3,7 +3,8 @@
 use super::moves::Move;
 use super::zobrist::{self, Zobrist};
 
-/// Playable dark squares, numbered 0..32 from Black's back rank.
+/// Playable dark squares: 32 of them, numbered 0 to 31 (`0..SQUARES` as a
+/// half-open range) from Black's back rank.
 pub const SQUARES: u32 = 32;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

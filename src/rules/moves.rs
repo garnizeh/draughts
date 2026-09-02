@@ -4,7 +4,7 @@
 //! place in the system permitted to decide what is legal. Everything else —
 //! search, the API, the lab runner — asks.
 
-use super::board::{GameState, Side};
+use super::board::{GameState, SQUARES, Side};
 
 /// A move, encoded as a `u16` when persisted.
 ///
@@ -63,10 +63,22 @@ impl MoveFlags {
 impl Move {
     /// Pack into the persisted `u16`: `from` in bits 0–4, `to` in bits 5–9,
     /// flags in bits 10–12. Version 1 of the encoding.
+    ///
+    /// # Panics
+    /// If `from` or `to` is outside `0..32`. Masking an out-of-range square
+    /// instead would silently persist a different, wrong square (`32` becomes
+    /// `0`), corrupting move replay and transposition move lists — a defect
+    /// at the call site that built this `Move`, and one this must not hide.
     #[must_use]
     pub fn to_u16(self) -> u16 {
-        u16::from(self.from & 0x1F)
-            | (u16::from(self.to & 0x1F) << 5)
+        assert!(
+            u32::from(self.from) < SQUARES && u32::from(self.to) < SQUARES,
+            "square out of range: from={}, to={} (valid range is 0..{SQUARES})",
+            self.from,
+            self.to
+        );
+        u16::from(self.from)
+            | (u16::from(self.to) << 5)
             | (u16::from(self.flags.bits() & 0x07) << 10)
     }
 
@@ -139,6 +151,20 @@ mod tests {
                 assert_eq!(Move::from_u16(mv.to_u16()), mv);
             }
         }
+    }
+
+    /// A caller must not be able to silently persist a truncated, wrong
+    /// square: `to_u16` on an out-of-range square must fail loudly, not mask
+    /// it into a different legal-looking one.
+    #[test]
+    #[should_panic(expected = "square out of range")]
+    fn encoding_an_out_of_range_square_panics_rather_than_truncating() {
+        let mv = Move {
+            from: 32,
+            to: 0,
+            flags: MoveFlags::NONE,
+        };
+        let _ = mv.to_u16();
     }
 
     #[test]

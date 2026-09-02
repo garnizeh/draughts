@@ -36,6 +36,21 @@ pub enum DbError {
     #[error("stored row uses format_version {found}, which this build cannot decode")]
     UnsupportedFormatVersion { found: u32 },
 
+    /// The database's `schema_migrations` table names a version this binary
+    /// has no migration for — an older binary pointed at a newer database,
+    /// most likely a rollback deployment. Serving traffic would mean reading
+    /// columns and BLOB layouts this build does not know about.
+    #[error(
+        "database schema is at version {found}, but this binary only knows migrations up to \
+         {known}; refusing to serve a schema newer than this build"
+    )]
+    SchemaTooNew { found: u32, known: u32 },
+
+    /// A BLOB whose encoding a `format_version` dispatch let through, but
+    /// whose length or shape does not match that encoding.
+    #[error("corrupt {0}")]
+    CorruptEncoding(String),
+
     /// The disk is full or the database is unwritable. Durable writes return
     /// `503`, bulk writes drop with a counter, and the read pool keeps serving
     /// (§20.6).

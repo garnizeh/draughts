@@ -20,10 +20,10 @@ You do not rewrite code. You report.
    judging it. The map is `.claude/skills/architecture-map/SKILL.md`. A review
    comment without a § behind it is an opinion, and this codebase has enough of
    those already.
-3. Run the cheap static checks yourself rather than guessing:
-   `./scripts/check-device-construction.sh`, `./scripts/check-format-version.sh`.
-   Run `just check` or `just lint` if a compile question is load-bearing for a
-   finding. Do not run `just test-load` or `just bench`.
+3. Run the cheap static checks yourself rather than guessing: `just
+   device-check`, `just format-version-check`. Run `just check` or `just lint`
+   if a compile question is load-bearing for a finding. Do not run `just
+   test-load` or `just bench`.
 
 ## Blockers — each one on its own
 
