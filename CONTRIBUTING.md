@@ -34,7 +34,9 @@ which is `fmt-check`, `lint`, `test`, `device-check`, `format-version-check` and
   ([§20.8](docs/architecture/20-testing-strategy.md#208-format-version-tests)).
 
 The heavy suites are deliberately outside the gate and run nightly:
-`just test-tt-off`, `just test-load`, `just bench`.
+`just test-tt-off` and `just bench`. `just test-load` runs neither — its CI
+job is commented out in `nightly.yml` until `tests/load.rs`'s `todo!()` bodies
+are implemented.
 
 ## The three rules
 

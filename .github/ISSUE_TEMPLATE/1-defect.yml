@@ -119,5 +119,5 @@ body:
       options:
         - label: I checked that the behaviour is not an unimplemented `todo!()` seam (those are tracked as implementation work, not defects).
           required: true
-        - label: I read the § I am citing, rather than citing it from memory.
+        - label: I read the § I am citing, rather than citing it from memory — or I said above that no § covers this behaviour.
           required: true

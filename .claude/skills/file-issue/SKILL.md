@@ -97,7 +97,7 @@ An issue form can only apply a fixed label set, so the `area:`, `gate:` and
 `prio:` labels are captured as dropdowns in the body and **must be applied by
 hand** after filing:
 
-```
+```text
 area:rules area:engine area:db area:api area:ui area:lab area:face area:config area:ci
 type:seam type:test type:perf type:docs type:infra
 gate:determinism gate:format-version gate:memory gate:cpu-only
