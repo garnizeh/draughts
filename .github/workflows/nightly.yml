@@ -48,22 +48,24 @@ jobs:
   # Disabled for now: every test body in tests/load.rs is `todo!()` (the
   # writer actor and lab runner they exercise don't exist yet), so this job
   # would fail on every scheduled run rather than reporting a real load-test
-  # result. Flip `if: false` off once those seams are implemented.
-  load:
-    name: load and volume (§20.4)
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    if: false
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.98.0"
-      - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v4
-      - run: just test-load
+  # result. `if: false` is what actionlint flags as a "constant expression" —
+  # commented out instead, which is what it was asking for. Uncomment once
+  # those seams are implemented.
+  #
+  # load:
+  #   name: load and volume (§20.4)
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 180
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #       with:
+  #         persist-credentials: false
+  #     - uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: "1.98.0"
+  #     - uses: Swatinem/rust-cache@v2
+  #     - uses: extractions/setup-just@v4
+  #     - run: just test-load
 
   # §20.9: baselines are tracked as committed numbers, not pass/fail assertions.
   # The artefact is the point; a run that is slower than yesterday is a question,

@@ -27,12 +27,24 @@ offenders="$(
         || true
 )"
 
-if [[ -n "$offenders" ]]; then
+# `use candle_core::Device as D;` followed by `D::Cpu` never contains the
+# literal string `Device::`, so it matches neither PATTERN above nor the
+# import scan below unless caught separately: any aliased import of the type
+# outside the allowed file is flagged on its own, whatever the alias is later
+# used for — cheaper than trying to track what the alias then constructs.
+alias_offenders="$(
+    grep -rEn --include='*.rs' '\buse\s+candle_core::Device\s+as\s+\w+' src tests benches 2>/dev/null \
+        | grep -v "^${ALLOWED_FILE}:" \
+        || true
+)"
+
+if [[ -n "$offenders" || -n "$alias_offenders" ]]; then
     echo "error: candle_core::Device is constructed outside ${ALLOWED_FILE}." >&2
     echo "       See §19.6.5 property 1 — the device must be resolved once," >&2
     echo "       in select_device(), and passed as a parameter thereafter." >&2
     echo >&2
     echo "$offenders" >&2
+    echo "$alias_offenders" >&2
     exit 1
 fi
 

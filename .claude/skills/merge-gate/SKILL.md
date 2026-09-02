@@ -10,10 +10,16 @@ just ci
 ```
 
 is `fmt-check`, `lint`, `test`, `device-check`, `format-version-check`, `docs` —
-in that order, and it is exactly what `.github/workflows/ci.yml` invokes. There
-is one definition of "green" and it is the justfile. Never hand-roll a `cargo`
+in that order, and it is exactly what `ci.yml`'s `gate` job invokes. There is
+one definition of "green" and it is the justfile. Never hand-roll a `cargo`
 command in place of a recipe: a passing hand-rolled command that differs from
 the recipe is a false green.
+
+**`just ci` is one of four required jobs, not the whole workflow.** `ci.yml`
+also runs `portable-build`, `cuda-compile` (`just check-cuda` + `just
+build-cuda`), and `supply-chain` (`just audit`) — each required on every PR,
+none reproduced by `just ci` itself. A PR isn't green until all four are; see
+"Before opening a PR" below for the two of those `just ci` doesn't cover.
 
 **A change is not done until `just ci` is green, and you have seen it.** Report
 the real output. If it fails and you are out of scope to fix it, say which
@@ -59,11 +65,13 @@ in a comment.
 
 ## The CUDA half
 
-CI compiles the `cuda` feature on every PR and runs nothing on a device:
+CI's `cuda-compile` job runs both of these on every PR, and runs nothing on a
+device — `build-cuda` links against the installed toolkit but never executes
+the binary it produces:
 
 ```bash
-CUDA_COMPUTE_CAP=86 just check-cuda   # compiles without a device
-CUDA_COMPUTE_CAP=86 just build-cuda   # needs a toolkit
+CUDA_COMPUTE_CAP=86 just check-cuda   # cargo check + clippy, no device needed
+CUDA_COMPUTE_CAP=86 just build-cuda   # an actual release build; needs a toolkit
 ```
 
 The device-requiring half of §20.10 runs on the target host only. Making it a
@@ -78,10 +86,11 @@ matters as much as the build.
 
 ## Before opening a PR
 
-1. `just ci`
-2. `just check-cuda` and `just audit` — unconditionally. Both are CI gates on
-   every PR (`ci.yml`'s `cuda-compile` and `supply-chain` jobs), not only when
-   you touched a feature-gated file: a shared-code change can break either.
+1. `just ci` — the `gate` job.
+2. `just check-cuda`, `just build-cuda`, and `just audit` — unconditionally.
+   All three are required CI jobs (`ci.yml`'s `cuda-compile` and
+   `supply-chain`), not only when you touched a feature-gated file: a
+   shared-code change can break any of them.
 3. `just test-tt-off` if you touched search or the table
 4. `CHANGELOG.md` updated
 5. Every new constant carries its §
