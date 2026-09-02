@@ -1,0 +1,134 @@
+name: Implementation work
+description: A roadmap issue, or a todo!() seam that needs filling in.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [docs/ROADMAP.md](https://github.com/garnizeh/draughts/blob/main/docs/ROADMAP.md)
+        is the plan; GitHub is the state. Most issues filed here are a transcription of a
+        row in that file — use its ID, which is permanent and never reused.
+
+        **Work that is not in the roadmap is a change to the roadmap first.** If this is
+        genuinely new, add the row in the same PR that adds the code, and bump the minor
+        version. If it is post-MVP — anything in §19 — use the **Post-MVP proposal** form
+        instead; it does not belong to a milestone.
+
+        **Be exhaustive about the work; be terse about the specification.** Those pull in
+        opposite directions and both are wanted. Everything particular to this issue —
+        what lands, what it depends on, which tests must exist and what they assert, what
+        will be measured, which files it opens — belongs here in full, because it exists
+        nowhere else. The specification does not: it is approved at v1.4, so cite the §
+        rather than paraphrasing it, and quote it only where the exact wording is what the
+        issue turns on.
+
+  - type: input
+    id: roadmap-id
+    attributes:
+      label: Roadmap ID
+      description: The ID from docs/ROADMAP.md, e.g. `M2-9`. Leave blank only if this issue is being added to the roadmap in the same change.
+      placeholder: "M1-4"
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Milestone
+      options:
+        - "M1 — Rules Core"
+        - "M2 — Search Engine"
+        - "M3 — Persistence"
+        - "M4 — Play Mode"
+        - "M5 — Training Lab"
+        - "M6 — Face Runtime"
+        - "M7 — Hardening & Acceptance"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: seam
+    attributes:
+      label: Seam
+      description: >
+        If this issue fills one of the named `todo!()` seams, say which. Implement against
+        the § the seam cites, not against a guess. The `implement-seam` skill has the
+        procedure.
+      options:
+        - "Move generation — src/rules/moves.rs (§5.3)"
+        - "Move application — src/rules/moves.rs (§5.3)"
+        - "Tree search — src/engine/mcts.rs (§6.4)"
+        - "Random rollout — src/engine/evaluator.rs (§6.3)"
+        - "TT store / merge / capacity — src/engine/transposition.rs (§6.7.5)"
+        - "Writer actor loop — src/db/writer.rs (§11.2.2)"
+        - "Lab worker pool — src/lab/runner.rs (§5.5, §15.3)"
+        - "Interrupted-batch recovery — src/lab/runner.rs (§11.4)"
+        - "GGUF load and tokenizer init — src/face/candle_adapter.rs (§7.4)"
+        - "Host residency accounting — src/face/candle_adapter.rs (§16.4)"
+        - "CUDA memory accounting — src/face/candle_adapter.rs (§16.6)"
+        - "Load-test bodies — tests/load.rs (§20.4)"
+        - "None — this is not a seam"
+    validations:
+      required: true
+
+  - type: input
+    id: section
+    attributes:
+      label: Owning §
+      description: The section that decides this. More than one is normal.
+      placeholder: "§6.7.5, §20.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What lands
+      description: >
+        The change, in the terms the § uses. Where the § already says it, quoting is better
+        than paraphrasing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: What the tests must assert
+      description: >
+        From [§20](https://github.com/garnizeh/draughts/blob/main/docs/architecture/20-testing-strategy.md),
+        for the area this touches — the perft baselines, the differential search test at 1,
+        2, 8 and 10 threads, the durability classes, the device-parity matrix. Name the
+        property, since that is how the test will be named.
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocked-by
+    attributes:
+      label: Blocked by
+      description: Issues or seams that have to land first. The milestone graph in the roadmap is ordered by dependency, not preference.
+
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Rules this touches
+      description: >
+        Any box ticked here needs an `architecture-reviewer` pass before merge, and the
+        matching `gate:` label.
+      options:
+        - label: "Reads or writes a persisted BLOB — `gate:format-version` (§13.7)"
+        - label: "Touches `probe`, `store`, or `EvaluatorIdentity` — `gate:determinism` (§20.5)"
+        - label: "Touches device selection or the `cuda` feature — `gate:cpu-only` (§19.6.5, §20.10)"
+        - label: "Moves a memory or VRAM budget — `gate:memory` (§16.1, §16.6)"
+        - label: "Changes `CommentaryContext` — this is an architectural change, not a convenience (§2.3)"
+        - label: "None of these"
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      description: Copied from the roadmap; it applies to every issue. Left unticked at filing time — this is the closing checklist.
+      options:
+        - label: "`just ci` green, output reported as run."
+        - label: "Tests named as the property they assert, asserting what §20 requires for the touched area."
+        - label: "Comments cite the § that decided any non-obvious constant."
+        - label: "CHANGELOG.md updated; the seam removed from the \"Not yet implemented\" list when it is the last one in its area."
+        - label: "New performance numbers in Appendix B, not in a comment."
+        - label: "No check weakened to make a test pass."

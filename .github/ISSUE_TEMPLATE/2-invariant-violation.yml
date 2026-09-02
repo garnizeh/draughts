@@ -1,0 +1,86 @@
+name: Invariant violation
+description: One of the five rules in CLAUDE.md is broken, or a change is about to break one.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The five rules are not style preferences — the design rests on them, and each is a
+        review blocker on its own. An issue filed here gets an `architecture-reviewer` pass
+        before anything merges against it, which is why it is worth separating from an
+        ordinary defect.
+
+        Add the matching `gate:` label after filing: `gate:format-version`,
+        `gate:determinism`, `gate:cpu-only`, or `gate:memory`.
+
+        **Give every detail you have.** These findings are argued from evidence, not from
+        category — paste the failing output whole, at every thread count or device you
+        tried, together with the commit and the configuration it ran under. A rule that is
+        "probably broken" cannot be reviewed; one with a reproduction can be fixed.
+
+  - type: dropdown
+    id: rule
+    attributes:
+      label: Which rule
+      options:
+        - "1. A persisted BLOB was read without dispatching on its format_version (§13.7)"
+        - "2. The transposition table changed what a search returns, not just how long it took (§20.5)"
+        - "3. candle_core::Device is constructed somewhere other than face::device::select_device (§19.6.5)"
+        - "4. The Face layer was given something that lets the LLM influence a move (§2.3)"
+        - "5. Something can only be tested on a GPU, which means the CPU path is broken (§20.10)"
+        - "A memory budget is exceeded, or is unverifiable (§16.1, §16.6)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Where
+      description: File and line, or the commit that introduced it. A permalink is ideal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: How the rule is broken
+      description: >
+        Be concrete about the mechanism rather than the category. "`store` writes on a
+        probe miss even in `TtMode::Deterministic`, so a second thread sees a different
+        tree" is actionable; "determinism is broken" is not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >
+        Whichever applies — the differential search test failing at a thread count, the
+        `device-check` or `format-version-check` output, a row that decodes wrongly, an RSS
+        or VRAM measurement under a full-density batch.
+      render: text
+
+  - type: dropdown
+    id: threads
+    attributes:
+      label: Thread counts exercised
+      description: >
+        Rule 2 only — §20.5 requires the differential search test green at 1, 2, 8 and 10
+        threads. Anything less has not tested it.
+      multiple: true
+      options:
+        - "1"
+        - "2"
+        - "8"
+        - "10"
+        - "Not applicable — this is not a transposition-table finding"
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you think the fix is
+      description: >
+        Optional, and a fix that weakens a check is not one. If `just test` objects to a
+        changed Zobrist fingerprint, the answer is a `format_version` bump, not an edit to
+        the expected constant.

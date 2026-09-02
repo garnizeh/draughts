@@ -17,8 +17,10 @@ CLAUDE.md                       project instructions, loaded every session
     persisted-format/           the format_version discipline (§13.7, §20.8)
     face-layer/                 device, profiles, breaker, "the LLM never plays"
     transposition-safety/       the determinism contract (§6.7, §20.5)
+    file-issue/                 the six forms, and the detail an issue owes a reader
   agents/architecture-reviewer  reviews a diff against the five rules
   commands/                     /gate /seam /arch /review
+.github/ISSUE_TEMPLATE/         the forms themselves; the skill writes to their shape
 ```
 
 `.claude/settings.local.json` is git-ignored for per-developer overrides.
@@ -37,6 +39,10 @@ that a change which trips one gets fixed rather than worked around.
 - If a section is renumbered, the `architecture-map` table moves with it.
 - If a recipe is added to `just ci`, the triage table in `skills/merge-gate/`
   gains a row.
+- If a field or a dropdown option changes in `.github/ISSUE_TEMPLATE/`, the
+  heading vocabulary in `skills/file-issue/` changes with it. `gh issue create`
+  bypasses the forms, so that skill is the only thing keeping a scripted issue
+  and a web-filed one the same shape.
 - Every CodeRabbit review comment gets a reply on its own thread before a PR is
   done — pointing at the fix, or stating why it stands as is. See
   `CONTRIBUTING.md`.

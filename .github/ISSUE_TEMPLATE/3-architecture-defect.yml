@@ -1,0 +1,92 @@
+name: Defect in the architecture or the docs
+description: A section is wrong, internally inconsistent, or rests on a number nobody derived.
+labels: ["documentation", "type:docs"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **An issue against the architecture is as valuable as a patch.** The eight defects
+        in [§0.2.2](https://github.com/garnizeh/draughts/blob/main/docs/architecture/00-revision-history.md)
+        were all found by reading, and the two revisions since were each caused by a single
+        number nobody had derived.
+
+        The document is authoritative over the code, so a defect in it is upstream of every
+        defect in the tree. Please do not soften a finding because it looks like it would be
+        expensive to be right about.
+
+        **Quote rather than summarise, and quote generously.** Where two sections disagree,
+        the interesting part is usually a clause neither of them emphasises, and a
+        paraphrase is exactly where it gets lost. Include every § you read on the way to
+        the finding, including the ones that turned out to be consistent — that trail is
+        what lets the next reader check the work instead of repeating it.
+
+  - type: dropdown
+    id: document
+    attributes:
+      label: Which document
+      options:
+        - "docs/architecture/ — a numbered section or appendix"
+        - "docs/ROADMAP.md — the plan of record"
+        - "CLAUDE.md — the agent harness"
+        - "CONTRIBUTING.md"
+        - "README.md"
+        - "Code comments, or a rustdoc item"
+        - "draughts.example.toml"
+    validations:
+      required: true
+
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: The § and its heading, or the file and line for anything outside docs/architecture/.
+      placeholder: "§16.1 Memory Budget — appendix-a-memory-budget.md"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of defect
+      options:
+        - "Two sections disagree with each other"
+        - "A figure is asserted but never derived, or the derivation does not reproduce"
+        - "The document describes a tree that no longer exists"
+        - "A constraint is stated without saying what enforces it"
+        - "An acceptance criterion in §25 is unverifiable as written"
+        - "The code is right and the document is wrong"
+        - "Ambiguous — two readings, both defensible, that lead to different code"
+        - "Typo, dead link, or formatting"
+    validations:
+      required: true
+
+  - type: textarea
+    id: finding
+    attributes:
+      label: The finding
+      description: >
+        Quote the text you are objecting to, then say what is wrong with it. If two sections
+        disagree, quote both — the interesting part is usually which one the rest of the
+        document leans on.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequence
+    attributes:
+      label: What it costs to leave it
+      description: >
+        Which code would be written wrong by someone who read this and believed it. A
+        documentation defect that misleads nobody is a typo; one that is load-bearing is a
+        revision.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed correction
+      description: >
+        Optional. A change to `docs/architecture/` is also a change to
+        [§0 Revision History](https://github.com/garnizeh/draughts/blob/main/docs/architecture/00-revision-history.md);
+        if this is large enough to move the version, say which way you think it goes.

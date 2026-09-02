@@ -1,0 +1,95 @@
+name: Performance regression or missing baseline
+description: A measured figure has moved against Appendix B, or a target has no measurement behind it.
+labels: ["type:perf"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [Appendix B](https://github.com/garnizeh/draughts/blob/main/docs/architecture/appendix-b-performance-targets.md)
+        holds every performance number in this project, and new ones go there rather than
+        into a comment. Two of its rows — peak RSS under a full-density batch, and peak
+        VRAM under lab load — are gates rather than metrics; missing one of those is an
+        **Invariant violation**, not a performance issue.
+
+        Numbers on this host mean something specific: a 2.6 GHz Broadwell, two memory
+        channels at ~15 GB/s, an RTX 3050. A figure measured elsewhere is a data point, not
+        a comparison, so please say what you measured it on.
+
+        **Give every detail you have.** A number is only as good as what surrounds it:
+        units, spread, sample count, the exact recipe, the relevant part of
+        `draughts.toml`, the host, and whether it was otherwise idle. A p99 with no `n` is
+        a rumour, and a figure with no configuration cannot be reproduced or refuted.
+
+  - type: dropdown
+    id: metric
+    attributes:
+      label: Which figure
+      options:
+        - "Lab games/minute (600–1 200, 10 workers, 800 iters)"
+        - "Transposition hit rate, steady state (0.6–0.8)"
+        - "Search speedup, table on vs. off, throughput mode (4–8×)"
+        - "Search speedup, table on vs. off, deterministic mode (1.5–2.5×)"
+        - "Transposition probe rate, 10 workers"
+        - "Sustained write throughput (100k–250k rows/s)"
+        - "Commit latency, 50k rows, p99 (< 2 000 ms)"
+        - "Play Mode move latency, p99 (< 1 600 ms)"
+        - "Play Mode completed iterations/move (measured, not targeted)"
+        - "Commentary latency, CUDA, 64 tokens, p50 (0.8–1.5 s)"
+        - "Commentary latency, CPU, 64 tokens, p50 (~1.7 s)"
+        - "Move latency with the circuit open (unchanged from Face-disabled)"
+        - "Something Appendix B does not have a row for"
+    validations:
+      required: true
+
+  - type: input
+    id: measured
+    attributes:
+      label: What you measured
+      description: The figure, with its units and its spread. A p99 without an n is hard to act on.
+      placeholder: "p99 2 340 ms over 500 moves, p50 890 ms"
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: How it was measured
+      description: >
+        The recipe and the configuration. `just bench` is the criterion path (§20.9);
+        `just test-load` is the 1M-game one, and its bodies are still `todo!()`. Say which,
+        and paste the relevant part of `draughts.toml` — most of these figures are a
+        function of `time_budget_ms`, worker count, or the cache sizes.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: What it was before
+      description: >
+        A criterion baseline, an earlier run, or the commit where it was last good. A
+        regression needs two numbers; if you only have one, that is a *missing baseline*
+        rather than a regression, and this issue should say so.
+
+  - type: textarea
+    id: host
+    attributes:
+      label: Host
+      description: >
+        CPU, memory channels and speed, GPU, driver, and whether the machine was otherwise
+        idle. §2.4 sets the baseline this project targets — deviations from it are what
+        makes a number hard to read, not what makes it invalid.
+      render: text
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledge
+    attributes:
+      label: Before filing
+      options:
+        - label: "This is not one of the two budget gates (peak RSS < 56 GB, peak VRAM < 4.5 GB) — those go to Invariant violation."
+          required: true
+        - label: "If this closes with a new figure, I understand it lands in Appendix B and not in a comment."
+          required: true

@@ -131,12 +131,55 @@ inline one — verify it, fix or decline it, and reply where a reader can find
 the answer (inline if CodeRabbit later promotes it to its own thread,
 otherwise one PR comment naming every file and line it covered).
 
-## Reporting a design problem
+## Filing an issue
+
+Six forms in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/), chosen by what
+the reader has to do about it rather than by what it feels like:
+
+| Form | For |
+|---|---|
+| Defect | The code crashes, returns the wrong answer, or contradicts a § |
+| Invariant violation | One of the five rules above is broken — routes to an architecture review |
+| Defect in the architecture or the docs | The **document** is wrong, inconsistent, or rests on an underived number |
+| Implementation work | A row from [docs/ROADMAP.md](docs/ROADMAP.md), or a `todo!()` seam |
+| Performance regression | A figure moved against [Appendix B](docs/architecture/appendix-b-performance-targets.md) |
+| Post-MVP proposal | [§19](docs/architecture/19-extensibility-roadmap.md) and §2.2 — out of scope, not rejected |
+
+Two edges are easy to get wrong. A wrong answer that traces to a broken rule is
+an *invariant violation*, not a defect, because it needs an architecture pass
+before anything merges against it. And the two budget gates — peak RSS under a
+full-density batch, peak VRAM under lab load — are invariant violations too, not
+performance issues; §16.1 and §16.6 are gates rather than metrics.
+
+**Fill the forms out fully.** Every field you leave thin is one the reader
+cannot reconstruct: paste the panic and the backtrace whole rather than the
+frames that look relevant, give the commands that worked as well as the one that
+did not, include the part of `draughts.toml` that was in force, the commit, the
+`rustc` version, and the device. §20.10 makes a CPU defect and a CUDA defect two
+different defects, so an issue without the device cannot even be classified. Say
+what you already ruled out, and how — it is the field people skip and the one
+that saves the most time. If a field does not apply, say so in a line; a blank
+field and a deliberately empty one look identical.
+
+The exception, and it is the only one: **do not restate the specification.** It
+is approved at v1.4 and already written. Cite the § and quote it only where the
+exact wording is what the issue turns on. Maximum detail means maximum detail
+about *your situation* — the part that exists nowhere else.
+
+`gh issue create` does not fill in a form; `--template` is only starting body
+text for the interactive editor. A scripted issue should reproduce the form's
+field labels as `###` headings, in order, so both routes produce one shape. The
+`area:`, `gate:` and `prio:` labels are captured as dropdowns in the body and
+have to be applied by hand after filing — a form can only apply a fixed set.
+
+### Reporting a design problem
 
 An issue against the architecture is as valuable as a patch. The eight defects
 in [§0.2.2](docs/architecture/00-revision-history.md#022-corrections) were all
 found by reading, and the two revisions since were each caused by a single
-number nobody had derived.
+number nobody had derived. Quote generously when you file one: where two
+sections disagree, the clause that settles it is usually the one a paraphrase
+drops.
 
 ## Working with Claude Code
 
