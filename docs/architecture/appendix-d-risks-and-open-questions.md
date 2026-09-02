@@ -1,0 +1,23 @@
+# Appendix D — Risks and Open Questions
+
+Recorded so that they remain decisions rather than becoming discoveries.
+
+| # | Risk | Severity | Mitigation / Open question |
+|---:|---|---|---|
+| 1 | In-process inference can abort the whole process ([§17.5](17-reliability.md#175-process-level-risk-from-in-process-inference)) | High | Hard memory and token budgets on both devices, `catch_unwind`, single-threaded inference. Residual risk accepted for a single-machine MVP. **Open:** is a subprocess-isolated inference path worth reintroducing if this ever fires in practice ([§22.2](22-deployment-model.md#222-optional-process-separation))? |
+| 2 | `Throughput` transposition mode makes lab samples statistically dependent ([§14.3](14-sampling-strategy.md#143-what-gets-stored)) | Medium | `reproducible: true` forces `Deterministic`. **Open:** measure how much the dependence actually biases a trained value head before fixing the default |
+| 3 | Up to 524 288 buffered messages lost on hard crash ([§11.4](11-database-architecture.md#114-durability-classes--new-in-11)) | Medium | Bulk data only; regenerable from a seed. The durable class covers everything that is not |
+| 4 | Transposition table has no true eviction policy ([§6.7.4](06-mcts-extensibility.md#674-capacity-and-eviction)) | Medium | Epoch retirement is crude but bounded. **Open:** does hit rate degrade enough at steady-state capacity to justify a real replacement policy? |
+| 5 | Zobrist collisions at 256M entries | Low | 64-bit keys with full board verification on hit; a collision costs a probe, never correctness |
+| 6 | The single writer remains a hard throughput ceiling | Medium | 50k-row transactions push the ceiling far out. **Open:** the next step is partitioning across multiple database files, which is a v2 conversation |
+| 7 | The model competes with the engine for CPU ([§15.4](15-concurrency-model.md#154-cpu-partitioning)) | Low since 1.4 | Largely resolved by moving inference to CUDA, which returned the reserved cores to the engine. Still applies in full on the CPU fallback path, where the reservation and the capped pool remain |
+| 8 | The 64 GB budget is assumed but not enforced by the deployment | Medium | Startup validation against `limits.max_total_memory_gb`; documented small-host profiles in [§11.1](11-database-architecture.md#111-sqlite-runtime-configuration) and [§14.2](14-sampling-strategy.md#142-recommended-defaults). Severity rose from Low at 1.3: the reserve absorbing a mistake is 13.5 GB, not 42 |
+| 9 | **The GPU falls back to CPU silently and commentary quality degrades unnoticed** ([§7.4.1](07-face-llm-layer.md#741-device-selection)) | Medium | Two model profiles so the fallback stays inside its deadline, one startup warning, and `device_requested` vs `device` on `/health` ([§21](21-observability.md)). **Open:** is a `degraded` health status warranted for a device mismatch, or does that reintroduce the supervisor-restart problem [§9.2](09-api-contract.md#92-health-endpoint) exists to avoid? |
+| 10 | **A CUDA fault takes the process down, and `catch_unwind` cannot help** ([§17.5](17-reliability.md#175-process-level-risk-from-in-process-inference)) | Medium | One thread in one component touches the device; the CPU profile is a complete tested path to restart into. A deployment that cannot tolerate it sets `face.device = "cpu"`. This is a *wider* blast radius than 1.3 had, accepted knowingly |
+| 11 | **VRAM is shared with a desktop session that the process does not control** ([§16.6](16-memory-strategy.md#166-vram-budget--new-in-14)) | Medium | Budget against ~5.0 GB usable rather than 6.0 nameplate, 3.2 GB of headroom, and OOM at load handled as a Face failure rather than a process failure. **Open:** should the budget be re-derived at startup from the device's actual free memory instead of a static figure? |
+| 12 | **CUDA toolkit / `cudarc` version drift against a 13.2 driver** ([§22.1](22-deployment-model.md#221-mvp-single-machine-deployment)) | Low | Surfaces as a build-time link error, not a runtime fault, and the non-CUDA build is unaffected. A 12.x toolkit alongside is the documented fix |
+| 13 | **Only two of four memory channels are populated** ([§2.4.1](02-scope-and-constraints.md#241-two-notes-for-whoever-operates-this-host)) | Low | Not a failure mode — a ceiling. Every bandwidth-derived figure in the document assumes the current configuration; populating the rest would invalidate several targets *upward*, which is the good direction, but they should be re-measured rather than re-estimated |
+
+---
+
+← [Appendix C — Migration from v1.0](appendix-c-migration-from-v1-0.md) · **[Index](README.md)** · [Appendix E — v1.0 → v1.1 Change Checklist](appendix-e-change-checklist.md) →

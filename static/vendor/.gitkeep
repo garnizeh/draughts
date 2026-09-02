@@ -1,0 +1,5 @@
+Vendored third-party JavaScript goes here — see the comment in ../index.html.
+
+Deliberately not committed: htmx and Alpine are fetched by `just setup-frontend`
+rather than vendored into the history, so that a licence and a version bump are
+a documented step rather than a silent diff.

@@ -1,0 +1,27 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # These move together and are tested together; separate PRs for each is
+      # noise, not signal.
+      tokio-stack:
+        patterns: ['tokio*', 'axum*', 'tower*', 'hyper*']
+      candle:
+        patterns: ['candle-*', 'tokenizers', 'cudarc']
+      tracing:
+        patterns: ['tracing*']
+    ignore:
+      # A rusqlite bump changes the bundled SQLite version, which changes the
+      # file format's write behaviour. Deliberate, not automatic.
+      - dependency-name: rusqlite
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

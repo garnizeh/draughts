@@ -1,0 +1,148 @@
+# The merge gate.
+#
+# Every job here either runs `just` or explains in a comment why it cannot. The
+# rule is that a green machine and a green pipeline mean the same thing, and the
+# way to keep that true is to have one definition of "green" — the justfile.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  # Deliberately no global `RUSTFLAGS: -D warnings`: it applies to every
+  # dependency too, which makes the build fail on somebody else's lint. Warnings
+  # are denied where they belong — `just lint` and `just docs`.
+
+jobs:
+  # The whole of `just ci`: formatting, clippy, the test suite, the two static
+  # checks in §19.6.5 and §20.8, and the docs.
+  #
+  # §20.10: "The full suite passes on CPU. Every test runs with
+  # face.device = 'cpu', on the default build. This is the gate: a change that
+  # can only be tested on a GPU is a change that has broken the property."
+  # This runner has no GPU, which is exactly what makes it the right runner.
+  gate:
+    name: gate (cpu, default build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      # rust-toolchain.toml pins the version; this action honours it.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: extractions/setup-just@v3
+
+      - run: just versions
+
+      - run: just ci
+
+  # §22.1 and §20.10: "cargo build --release with no features produces a binary
+  # that links and runs on a machine with no driver and no toolkit."
+  #
+  # Asserted by building and *running* it in a container that has neither. The
+  # run matters as much as the build: a missing CUDA library shows up at load
+  # time, not at link time.
+  portable-build:
+    name: portable build (no driver, no toolkit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: rust:1.98-slim-bookworm
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Confirm the container really has no CUDA
+        run: |
+          set -euo pipefail
+          if command -v nvcc >/dev/null 2>&1; then
+            echo "this job is meaningless with a toolkit installed" >&2
+            exit 1
+          fi
+          test ! -e /dev/nvidia0
+          echo "no toolkit, no device — proceeding"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the portable binary
+        run: cargo build --locked --release
+
+      - name: It must link and run
+        run: |
+          set -euo pipefail
+          ./target/release/draughts --version
+          # §23.1: validation runs on this host and must pass on the committed
+          # example, which resolves to the CPU profile here.
+          ./target/release/draughts --config draughts.example.toml --check-config
+
+      - name: The binary must not be linked against CUDA
+        run: |
+          set -euo pipefail
+          apt-get update -qq && apt-get install -y -qq binutils
+          if objdump -p ./target/release/draughts | grep -iE 'NEEDED.*(cuda|nvidia|cublas)'; then
+            echo "the default build has a CUDA dependency — see §19.6.5 property 3" >&2
+            exit 1
+          fi
+          echo "no CUDA in NEEDED"
+
+  # §20.10: "--features cuda builds. A compile-only CI job, no device required,
+  # so the feature-gated path cannot rot."
+  #
+  # This is a gate. The half of §20.10 that *needs* a device is not, and does not
+  # run here — making it a gate would reintroduce the GPU dependency the whole
+  # section exists to prevent.
+  cuda-compile:
+    name: cuda feature compiles (no device)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # §22.1: if cudarc's supported toolkit range lags the driver's CUDA
+      # version, install a toolkit in range and point the build at it. That is
+      # the fix, not a driver downgrade. A mismatch surfaces as a link error at
+      # build time, which is the failure mode to prefer.
+      - uses: Jimver/cuda-toolkit@v0.2.29
+        id: cuda
+        with:
+          cuda: '12.6.0'
+          method: network
+          sub-packages: '["nvcc", "cudart", "cublas-dev", "curand-dev"]'
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cuda
+
+      - uses: extractions/setup-just@v3
+
+      - name: Compile the CUDA path
+        env:
+          # Ampere GA10x — the RTX 3050 in §2.4.
+          CUDA_COMPUTE_CAP: '86'
+        run: just check-cuda
+
+  # Advisories, licences, and duplicate dependencies.
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources

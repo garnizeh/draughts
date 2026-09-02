@@ -1,0 +1,113 @@
+# draughts — configuration
+#
+# Copy to `draughts.toml` and edit. One file, one binary, no
+# environment-specific code paths.
+#
+# Every value below is derived for the target host in §2.4 — 64 GB, 14 cores,
+# RTX 3050 — and the section that owns each derivation is named in a comment.
+# Re-derive them for a different machine rather than scaling them by eye: the
+# relations are stated in the architecture, and §16.1.1 shows that halving the
+# host does not halve every row.
+#
+# Validate a file without starting the service:
+#
+#     draughts --config draughts.toml --check-config
+
+[server]
+host           = "127.0.0.1"
+port           = 8080
+static_dir     = "./static"
+worker_threads = 4                   # Tokio runtime; HTTP only — §15
+
+[database]
+path                     = "./data/draughts.db"
+page_size                = 8192      # applied at creation only
+writer_cache_mb          = 4096      # PRAGMA cache_size = -4194304
+reader_cache_mb          = 256       # per reader connection, NOT 4 GB each
+mmap_size_gb             = 8         # §11.1 explains why this is not a rescale
+read_pool_size           = 6
+busy_timeout_ms          = 30000
+checkpoint_every_commits = 64
+journal_size_limit_mb    = 4096
+
+[database.writer]
+channel_capacity  = 262144           # ~2 GB RAM ceiling — §16.1
+db_batch_rows     = 50000            # target rows per transaction
+flush_interval_ms = 250              # commit even if the batch is not full
+max_retries       = 5
+retry_backoff_ms  = [10, 50, 250, 1000, 5000]
+
+[engine.play]
+evaluator            = "random_rollout"
+iterations           = 4000          # a ceiling; time_budget_ms binds first — §16.2
+time_budget_ms       = 1500
+exploration_constant = 1.4
+worker_threads       = 1
+transposition_mode   = "deterministic"
+
+[engine.lab]
+evaluator            = "random_rollout"
+iterations           = 800
+time_budget_ms       = 0             # 0 = iteration-bounded; a time budget is not reproducible
+exploration_constant = 1.2
+worker_threads       = 10            # 14 physical cores, GPU Face — §15.4
+transposition_mode   = "throughput"
+
+[engine.transposition]
+enabled               = true
+capacity_entries      = 256000000    # ~21 GB against a 24 GB budget — §16.3
+shard_count           = 512          # power of two, comfortably above the worker count
+reset_between_batches = false
+retire_batch_size     = 65536
+huge_pages            = "advise"     # "advise" | "off"; MADV_HUGEPAGE — §16.3.1
+
+[lab.sampling]
+record_positions_every_n_plies = 2   # §14.2
+record_terminal_positions      = true
+max_edges_per_position         = 16
+store_child_stats              = true
+only_store_high_visit_edges    = false
+
+[face]
+enabled           = true
+provider          = "candle"
+device            = "auto"           # "cuda" | "cpu" | "auto" — §7.4.1
+device_index      = 0                # which CUDA device, when there is more than one
+warm_on_start     = true             # matters more on CUDA, not less — §16.4
+deadline_ms       = 2500             # raise it with the model, on either device
+max_tokens        = 80
+max_queue_depth   = 2
+inference_threads = 2                # CPU path only; inert on CUDA — §15.4
+min_interval_ms   = 4000             # rate limit between taunts
+lab_mode_enabled  = false
+fallback          = "canned"
+verbosity         = "low"
+
+# Two profiles, because the resolved device can change between boots without
+# anyone editing this file. One model_path would silently put a 4.3 s model
+# against a 2.5 s deadline on fallback. See §7.5.4.
+[face.cuda_profile]
+model_path     = "./models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+tokenizer_path = "./models/qwen2.5-1.5b-instruct/tokenizer.json"
+model_id       = "qwen2.5-1.5b-instruct-q4_k_m"
+
+[face.cpu_profile]
+model_path     = "./models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+tokenizer_path = "./models/qwen2.5-0.5b-instruct/tokenizer.json"
+model_id       = "qwen2.5-0.5b-instruct-q4_k_m"
+
+[face.sampling]
+temperature    = 0.7
+top_p          = 0.9
+repeat_penalty = 1.1
+repeat_last_n  = 64
+seed           = 0                   # 0 = per-request; non-zero = reproducible taunts
+
+[face.circuit_breaker]
+failure_threshold = 3                # consecutive failures before opening
+cooldown_seconds  = 300              # 5 minutes open
+half_open_probes  = 1                # single trial request before closing
+
+[limits]
+max_total_memory_gb = 56             # host RAM, validated at startup — §16.1
+max_vram_mb         = 4608           # device memory, validated at load — §16.6

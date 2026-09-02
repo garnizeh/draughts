@@ -1,0 +1,7 @@
+# The transposition table, the writer channel, and the memory budget are all
+# expressed in large literals. Requiring separators keeps 256000000 from being
+# read as 25600000 in review.
+literal-representation-threshold = 8192
+
+# §16 fixes a memory budget. A large value moved by accident is a bug worth a lint.
+too-large-for-stack = 8192

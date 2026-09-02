@@ -1,0 +1,32 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Runtime artefacts — a deployment is code + config; data and weights are neither.
+/data/
+/models/
+*.db
+*.db-wal
+*.db-shm
+
+# Local operator config. `draughts.example.toml` is the committed one.
+/draughts.toml
+
+# Benchmark and profiling output
+/perf.data*
+/flamegraph.svg
+/criterion/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+
+# Vendored frontend libraries — fetched by `just setup-frontend`, not committed.
+/static/vendor/*.js
+
+# Claude Code — the harness is committed; per-developer overrides are not.
+/.claude/settings.local.json

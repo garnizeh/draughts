@@ -1,0 +1,73 @@
+# The jobs that are too slow, too large, or too device-dependent to gate a
+# merge, but whose absence would let a property decay silently.
+
+name: Nightly
+
+on:
+  schedule:
+    # 03:00 UTC. Nothing depends on the hour; it is off-peak for the runners.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  # §5.4: "a nightly CI job runs the golden-search suite with the table off to
+  # prove the cache is not load-bearing for correctness."
+  transposition-off:
+    name: correctness with the table disabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v3
+      - run: just test-tt-off
+
+  # §20.4: a million games, five million sampled rows, and a peak-RSS gate.
+  # Minutes to hours — never a merge gate.
+  load:
+    name: load and volume (§20.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v3
+      - run: just test-load
+
+  # §20.9: baselines are tracked as committed numbers, not pass/fail assertions.
+  # The artefact is the point; a run that is slower than yesterday is a question,
+  # not a failure.
+  baselines:
+    name: performance baselines (§20.9)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v3
+
+      - run: just bench -- --save-baseline nightly
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baselines-${{ github.run_id }}
+          path: target/criterion/
+          retention-days: 30
+
+  # The dependency graph moves under the project even when the project does not.
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories

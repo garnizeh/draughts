@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draughts</title>
+  <link rel="stylesheet" href="/app.css">
+
+  <!--
+    Vendored, not CDN-loaded. §22.1 promises a deployment of one binary, one
+    config file, a database and a model directory — a page that fetches its own
+    framework at load time turns "runs on this machine" into "runs on this
+    machine with an internet connection".
+
+    Fetch them with:
+      curl -Lo static/vendor/htmx.min.js  https://unpkg.com/htmx.org@2/dist/htmx.min.js
+      curl -Lo static/vendor/alpine.min.js https://unpkg.com/alpinejs@3/dist/cdn.min.js
+  -->
+  <script src="/vendor/htmx.min.js" defer></script>
+  <script src="/vendor/alpine.min.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Draughts</h1>
+    <p class="subtitle">English draughts · MCTS · self-play training lab</p>
+  </header>
+
+  <main id="game-root">
+    <section class="panel">
+      <h2>Play</h2>
+      <p>Human versus CPU. The board comes back at engine speed.</p>
+      <button hx-post="/api/v1/matches" hx-target="#game-root" hx-swap="innerHTML">
+        New match
+      </button>
+    </section>
+
+    <section class="panel">
+      <h2>Training lab</h2>
+      <p>Headless self-play across the worker pool.</p>
+      <a href="/lab">Batches</a>
+    </section>
+
+    <!--
+      §10.3: commentary is decoupled from the move response. The board lands in
+      the time MCTS takes, not the time the model takes, and this pane fetches
+      independently.
+
+      §5.1: it must render correctly when commentary is null or canned. The
+      circuit breaker makes fallback a routine steady state, not an error.
+    -->
+    <section class="panel" id="commentary"
+             hx-get="/api/v1/matches/current/commentary"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML">
+      <span class="commentary-idle">…</span>
+    </section>
+  </main>
+
+  <footer>
+    <a href="/api/v1/health">health</a>
+  </footer>
+</body>
+</html>
