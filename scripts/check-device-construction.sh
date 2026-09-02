@@ -27,16 +27,22 @@ offenders="$(
         || true
 )"
 
-# `use candle_core::Device as D;` followed by `D::Cpu` never contains the
-# literal string `Device::`, so it matches neither PATTERN above nor the
-# import scan below unless caught separately: any aliased import of the type
-# outside the allowed file is flagged on its own, whatever the alias is later
-# used for — cheaper than trying to track what the alias then constructs.
-alias_offenders="$(
-    grep -rEn --include='*.rs' '\buse\s+candle_core::Device\s+as\s+\w+' src tests benches 2>/dev/null \
-        | grep -v "^${ALLOWED_FILE}:" \
-        || true
-)"
+# `use candle_core::Device as D;` (bare) and `use candle_core::{..., Device as
+# D, ...};` (grouped, possibly spread across several lines) both let a caller
+# build `D::Cpu` without the literal string `Device::` ever appearing —
+# invisible to PATTERN above. Flag any aliased import of the type outside the
+# allowed file, whatever the alias is later used for — cheaper than trying to
+# track what the alias then constructs. Each file is flattened to one line
+# first (`tr '\n' ' '`) so a brace list broken across lines can't hide the
+# alias from a single-line regex, then matched up to the statement's `;`,
+# which covers the bare and grouped forms with one pattern.
+alias_offenders=""
+while IFS= read -r -d '' file; do
+    [[ "$file" == "$ALLOWED_FILE" ]] && continue
+    if tr '\n' ' ' <"$file" | grep -qE '\buse\s+candle_core::[^;]*\bDevice\s+as\s+\w+\b'; then
+        alias_offenders+="${file}: aliased Device import ('use ... as <name>')"$'\n'
+    fi
+done < <(find src tests benches -name '*.rs' -print0 2>/dev/null)
 
 if [[ -n "$offenders" || -n "$alias_offenders" ]]; then
     echo "error: candle_core::Device is constructed outside ${ALLOWED_FILE}." >&2

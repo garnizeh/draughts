@@ -67,8 +67,11 @@ just check-config       # §23.1 validation against this host, no db, no port
 just bench              # criterion baselines (§20.9)
 ```
 
-Outside the gate, deliberately: `just test-tt-off`, `just test-load`,
-`just bench`, `just check-cuda`. They run nightly.
+Outside `just ci` but still required on every PR, as separate `ci.yml` jobs:
+`just check-cuda`, `just build-cuda`, `just audit`. Outside the gate
+entirely, deliberately, and nightly-only: `just test-tt-off`, `just bench`.
+`just test-load` runs neither — its CI job is commented out in `nightly.yml`
+until `tests/load.rs`'s `todo!()` bodies are implemented.
 
 ## Working in this tree
 

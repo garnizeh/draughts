@@ -119,14 +119,17 @@ red `just ci` is not done.
 findings it cannot anchor to a changed line inside the review's own body text
 — a collapsible **"⚠️ Outside diff range comments"** section — rather than as
 individual comments with their own ids. Listing per-line comments (`gh api
-repos/OWNER/REPO/pulls/PR/comments`) never surfaces these; they exist only in
-`gh api repos/OWNER/REPO/pulls/PR/reviews` → each review's `body`. A pass that
-only reads the flat comment list will look complete and still leave findings
-answered by nobody. Before calling a CodeRabbit review done: list every review
-on the PR, read each `body` in full, and treat an outside-diff finding exactly
-like an inline one — verify it, fix or decline it, and reply where a reader
-can find the answer (inline if CodeRabbit later promotes it to its own
-thread, otherwise one PR comment naming every file and line it covered).
+--paginate repos/OWNER/REPO/pulls/PR/comments`) never surfaces these; they
+exist only in `gh api --paginate repos/OWNER/REPO/pulls/PR/reviews` → each
+review's `body`. `--paginate` matters on both calls, not just one: a PR with
+enough reviews or comments to span more than one page silently drops the rest
+without it, which looks exactly like a clean pass. A pass that only reads the
+flat comment list will look complete and still leave findings answered by
+nobody. Before calling a CodeRabbit review done: list every review on the PR,
+read each `body` in full, and treat an outside-diff finding exactly like an
+inline one — verify it, fix or decline it, and reply where a reader can find
+the answer (inline if CodeRabbit later promotes it to its own thread,
+otherwise one PR comment naming every file and line it covered).
 
 ## Reporting a design problem
 
