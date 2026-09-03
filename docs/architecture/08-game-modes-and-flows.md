@@ -61,7 +61,7 @@ flowchart TB
         K --> L
         L --> M["Optionally sample root and child stats"]
         M --> N["Apply move"]
-        N --> O["Append the move to the in-worker history buffer<br/>and the new position's key to the repetition window,<br/>which was seeded with the key it opened on (§5.3.1)"]
+        N --> O["Append the move to the in-worker history buffer.<br/>After a capture or promotion, reset and reseed the repetition window<br/>with the new position's key; otherwise append that key (§5.3.1)"]
         O --> G
     end
 
