@@ -28,6 +28,7 @@ scripts/
   check-no-cuda-linkage.sh      §22.1 — the default build needs no CUDA library
   check-doc-links.py            every relative link and § anchor resolves
   rotate-changelog.py           CHANGELOG.md stays newest-first and five deep
+  seed-github.py                docs/ROADMAP.md → milestones, labels, issues
 docs/changelog/                 archived releases, one file per version
 .github/
   ISSUE_TEMPLATE/               the forms; the file-issue skill writes to their shape

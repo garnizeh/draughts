@@ -1,7 +1,7 @@
 ---
 description: Prepare a release PR — bump the version, close the CHANGELOG section, verify
 argument-hint: "x.y.z"
-allowed-tools: Bash, Read, Edit, Glob, Grep
+allowed-tools: Skill, Bash, Read, Edit, Glob, Grep
 ---
 
 Prepare the release PR for version $ARGUMENTS. Load the `releasing` skill first

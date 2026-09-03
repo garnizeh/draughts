@@ -24,6 +24,7 @@
 # `CommentaryContext` is the whole of what the Face layer is given.
 /src/face/                          @garnizeh
 /scripts/check-device-construction.sh   @garnizeh
+/scripts/check-no-cuda-linkage.sh   @garnizeh
 
 # §23.1 — startup validation is what turns a bad configuration into a refusal to
 # start rather than a failure at hour four.
@@ -32,6 +33,14 @@
 # The definition of "green", and the supply chain it runs through.
 /justfile                           @garnizeh
 /.github/                           @garnizeh
+/scripts/check-doc-links.py         @garnizeh
+
+# What an agent working here is told the rules are, and the two scripts that
+# write on the repository's behalf: one into an archive the tree calls
+# permanent, one into GitHub itself.
+/.claude/                           @garnizeh
+/scripts/rotate-changelog.py        @garnizeh
+/scripts/seed-github.py             @garnizeh
 /deny.toml                          @garnizeh
 /rust-toolchain.toml                @garnizeh
 /Cargo.toml                         @garnizeh

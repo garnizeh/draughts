@@ -301,6 +301,15 @@ jobs:
           retention-days: 14
 
   # Advisories, licences, and duplicate dependencies.
+  #
+  # `just audit` is the same command — `cargo deny check advisories bans
+  # licenses sources` — against the same `deny.toml`, so the policy is shared
+  # with the local run. The action is used rather than the recipe only because
+  # it manages its own cargo-deny, which is one fewer install on a job that does
+  # nothing else. That makes this the one job where the recipe and CI can differ
+  # by tool version, and the difference is a version rather than a policy: a
+  # finding here that `just audit` does not reproduce means the advisory
+  # database moved, not that the tree did.
   supply-chain:
     name: supply chain
     runs-on: ubuntu-latest

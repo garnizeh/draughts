@@ -1,7 +1,7 @@
 ---
 description: Work the CodeRabbit review on a PR end to end — verify, fix, reply, harvest
 argument-hint: "[PR number, default: the PR for the current branch]"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
+allowed-tools: Skill, Bash, Read, Edit, Write, Glob, Grep
 ---
 
 Work the review on PR $ARGUMENTS to completion. If that is empty, resolve the

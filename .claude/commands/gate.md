@@ -1,7 +1,7 @@
 ---
 description: Run every CI job locally (just pre-pr) and fix what it finds
 argument-hint: "[optional: extra context or a recipe to run instead]"
-allowed-tools: Bash, Read, Edit, Glob, Grep
+allowed-tools: Skill, Bash, Read, Edit, Glob, Grep
 ---
 
 Run the merge gate and drive it to green.
