@@ -26,7 +26,7 @@ default:
 # ---------------------------------------------------------------------------
 
 # Everything the `gate` job checks, in the order it checks it. See `pre-pr`.
-ci: fmt-check lint test test-docs device-check format-version-check changelog-check doc-links source-citations docs
+ci: fmt-check lint test test-docs device-check format-version-check changelog-check changelog-rotate-symlinks-check doc-links source-citations docs
     @echo "ci: green"
 
 # Every job CI runs, not only the `gate` one. This is the pre-PR check.
@@ -327,6 +327,14 @@ changelog-check:
 # Archive whatever is over the limit into docs/changelog/.
 changelog-rotate:
     ./scripts/rotate-changelog.py
+
+# rotate-changelog.py writes into docs/changelog/ from two branches — the
+# ordinary rotation and the over<=0 recovery path — and both must refuse a
+# symlinked archive directory or a symlinked index (PR #99, LESSONS.md).
+
+# Both changelog-rotate write paths refuse a symlinked archive.
+changelog-rotate-symlinks-check:
+    ./scripts/check-changelog-rotate-symlinks.sh
 
 # §22.1: two builds, and both must work. `portable` is the one the deployment
 # model promises runs on a machine with no driver — its linkage is asserted,
