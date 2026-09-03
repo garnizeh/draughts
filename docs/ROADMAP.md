@@ -349,7 +349,7 @@ pick it up and spend an afternoon finding that out.
 | M7-8 | Structured logging, metrics and the §21 counters | §21 | `type:infra` |
 | M7-9 | Startup and shutdown sequences match §22.3 / §22.4 | §22 | `type:infra` |
 | M7-10 | Portable-build container test: no driver, no toolkit, plays a full game | §20.10, §22.1 | `area:ci` `gate:cpu-only` `prio:mvp-blocker` |
-| M7-11 | Nightly workflow: `test-tt-off`, `test-load`, `bench`, `check-cuda` | §20 | `area:ci` `type:infra` |¹
+| M7-11 | Nightly workflow: `test-tt-off`, `test-load`, `bench`, `check-cuda` | §20 | `area:ci` `type:infra` ¹ |
 | M7-12 | Appendix B filled with measured numbers, replacing the estimates | App. B | `type:docs` `type:perf` |
 | M7-13 | Operational playbook and README pass for a first-time operator | §22.5 | `type:docs` |
 | M7-14 | **Acceptance walkthrough: all 27 §25 criteria demonstrated and recorded** | §25 | `prio:mvp-blocker` `type:docs` |

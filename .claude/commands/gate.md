@@ -8,10 +8,19 @@ Run the merge gate and drive it to green.
 
 $ARGUMENTS
 
-1. `just pre-pr` — every job `ci.yml` runs, locally, in CI's order: `just ci`
-   (fmt-check, lint, test, device-check, format-version-check, changelog-check,
-   docs), then actionlint, `just audit`, the portable build and its linkage
-   assertion, the CUDA path, and coverage.
+1. `just pre-pr` — every job `ci.yml` runs, locally. The order is not CI's: it
+   is sorted by what a failure would *mean*, so anything answerable on any
+   machine is answered before anything that can fail for a reason unrelated to
+   the change.
+
+   First `just ci` (fmt-check, lint, test, device-check, format-version-check,
+   changelog-check, doc-links, docs) and the portable build with its linkage
+   assertion — these need only the pinned toolchain, so a failure means the tree
+   is wrong. Then `just audit`, coverage and actionlint, which need a tool
+   `just setup` installs. Then the CUDA path, which needs a toolkit on this host.
+
+   The `justfile` is the authority on that order; if this paragraph and the
+   recipe disagree, the recipe is right.
 
    Run the whole thing, not `just ci` alone. `just ci` is one job of six, and
    the other five catch breakage it structurally cannot see — a CUDA path that

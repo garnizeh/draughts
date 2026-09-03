@@ -22,9 +22,7 @@
       "Bash(gh issue list:*)",
       "Bash(gh issue view:*)",
       "Bash(gh run view:*)",
-      "Bash(gh run list:*)",
-      "Bash(gh api repos/garnizeh/draughts/pulls:*)",
-      "Bash(gh api repos/garnizeh/draughts/issues:*)"
+      "Bash(gh run list:*)"
     ],
     "ask": [
       "Bash(just setup-frontend)",

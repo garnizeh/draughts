@@ -15,7 +15,7 @@ Before triaging anything, read [LESSONS.md](LESSONS.md). It is not a log of past
 
 Two reasons to read it before phase 1 rather than after. It tells you what to look for in the diff under review, which is often faster than reading the findings. And it tells you whether a finding you are about to dismiss as a one-off has been seen before — because **"an instance is just a bug" is right the first time and wrong the third**, and there is no other way to notice the second occurrence.
 
-Each rule carries an **origin** — the finding that created it — and two counters: **missed**, the times it existed and a reviewer caught the mistake anyway, and **saved**, the times it was read before a PR and caught it first. `saved / (saved + missed)` is the rule's hit rate, and it is the number that says whether a rule is pulling its weight. A high `missed` with a zero `saved` does not mean the class is stubborn; it means **the text is not working**, and rewriting it is worth more than bumping it.
+Each rule carries an **origin** — the finding that created it, absent on the two kinds that were not learned here, which that file defines — and two counters: **missed**, the times it existed and a reviewer caught the mistake anyway, and **saved**, the times it was read before a PR and caught it first. `saved / (saved + missed)` is the rule's hit rate, and it is the number that says whether a rule is pulling its weight. A high `missed` with a zero `saved` does not mean the class is stubborn; it means **the text is not working**, and rewriting it is worth more than bumping it.
 
 ## 1. Fetch everything
 

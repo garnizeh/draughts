@@ -12,7 +12,7 @@ just setup            # rustfmt, clippy, cargo-deny
 just setup-frontend   # vendor htmx and Alpine into static/vendor/
 cp draughts.example.toml draughts.toml
 just check-config     # §23.1 validation against this host
-just ci               # the full merge gate
+just pre-pr           # every CI job, locally — see The gate below
 ```
 
 `just` is the only entry point you need. Every recipe is listed by `just` on its

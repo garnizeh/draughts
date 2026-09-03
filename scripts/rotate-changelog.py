@@ -249,6 +249,19 @@ def main() -> int:
         )
         return 1
 
+    # Checking the page for a symlink is not enough: if `docs/` or
+    # `docs/changelog/` is itself a link to somewhere else, a fresh
+    # `<version>.md` inside it is not a symlink and `write_text` lands outside
+    # the repository entirely. Resolve the directory and require it to stay
+    # under ROOT, before it is created and before anything is written into it.
+    if not ARCHIVE.resolve().is_relative_to(ROOT.resolve()):
+        print(
+            f"changelog-rotate: {ARCHIVE} resolves outside the repository "
+            f"({ARCHIVE.resolve()}) — refusing to write",
+            file=sys.stderr,
+        )
+        return 1
+
     ARCHIVE.mkdir(parents=True, exist_ok=True)
 
     # Sections appear newest first, so the tail is what ages out.
