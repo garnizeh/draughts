@@ -1,6 +1,6 @@
 ---
 name: merge-gate
-description: Run and interpret the draughts merge gate — just ci, fmt-check, lint, test, device-check, format-version-check, docs — plus the nightly suites (test-tt-off, test-load, bench, check-cuda). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
+description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (fmt-check, lint, test, device-check, format-version-check, changelog-check, doc-links, docs) — plus the nightly suites (test-tt-off, test-load, bench). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
 ---
 
 # The gate
@@ -11,7 +11,7 @@ just ci         # one of those six jobs
 ```
 
 `just ci` is `fmt-check`, `lint`, `test`, `device-check`,
-`format-version-check`, `changelog-check`, `docs` — in that order, and it is
+`format-version-check`, `changelog-check`, `doc-links`, `docs` — in that order, and it is
 exactly what `ci.yml`'s `gate` job invokes. There is
 one definition of "green" and it is the justfile. Never hand-roll a `cargo`
 command in place of a recipe: a passing hand-rolled command that differs from

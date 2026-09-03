@@ -102,9 +102,11 @@ Bump a counter by **appending a `#PR (date)` entry to its list**, never by editi
 
 A finding that creates a new rule is that rule's **origin**, never a miss: the rule did not exist, so it cannot have failed. A finding on a class already in the file is a **miss**, and it is the entry worth writing carefully, because it is the only one that criticises the writing rather than the world.
 
-**Record a `saved` only when you can name what it caught**, as concretely as a `caught` entry names its finding. `saved` is self-reported and has no review thread behind it; a save with no named defect is a rule congratulating itself, and a counter that only ever goes up measures nothing.
+**Record a `saved` only when you can name what it caught**, as concretely as a miss names its finding. `saved` is self-reported and has no review thread behind it; a save with no named defect is a rule congratulating itself, and since the hit rate divides by the sum of both, inflating it corrupts the only number that ranks the rules.
 
-The file stays bounded by itself, and that is deliberate: a rule leaves it when it graduates, to a script at ×2 or to `CLAUDE.md` at ×5, moving to the *Retired* section with a pointer to whatever replaced it. LESSONS.md holds only what is not yet mechanized and not yet permanent. If it is growing and nothing is graduating, that is the signal — the harvest phase is being skipped.
+A rule with a miss is also hoisted into the *Failed before* block at the top, and demoted out of it after a release with no new miss.
+
+The file stays bounded by itself, and that is deliberate: a rule leaves it when it graduates on `missed` — to a script at ×2 or to `CLAUDE.md` at ×5 — moving to the *Retired* section with a pointer to whatever replaced it. LESSONS.md holds only what is not yet mechanized and not yet permanent. If it is growing and nothing is graduating, that is the signal — the harvest phase is being skipped.
 
 ## What good looks like
 

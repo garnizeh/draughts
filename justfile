@@ -37,20 +37,29 @@ ci: fmt-check lint test device-check format-version-check changelog-check doc-li
 # nothing. Finding those here costs a minute; finding them on a pushed branch
 # costs a round trip and a red PR.
 #
-# Order matters, and it is not the order `ci.yml` lists the jobs in. `just`
-# stops the prerequisite chain at the first failure, so anything that can fail
-# for a reason other than "the tree is wrong" goes last. The two CUDA recipes
-# need a toolkit on this host; on a machine without one they fail on the
-# toolkit, and everything ahead of them has already run and already answered.
+# Order matters, and it is not the order `ci.yml` lists the jobs in. `just` stops
+# the prerequisite chain at the first failure, so the list is sorted by *what a
+# failure would mean*, in three tiers:
+#
+#   1. `ci`, `portable-check`     — need only the pinned Rust toolchain. If one
+#                                   of these fails, the tree is wrong.
+#   2. `audit`, `coverage`,       — need a tool `just setup` installs
+#      `workflows-check`            (cargo-deny, cargo-llvm-cov, actionlint). A
+#                                   failure here may mean the host, not the tree.
+#   3. `check-cuda`, `build-cuda` — need a CUDA toolkit on this host.
+#
+# Everything answerable on any machine is answered before anything that can fail
+# for a reason unrelated to the change. Sorting the other way is how a missing
+# actionlint costs you the coverage report.
 #
 # Two caveats, stated rather than hidden. `portable-check` builds outside a
 # driverless container, so it is weaker than CI's version of the same job — CI
 # stays the authority on §22.1. And a red `pre-pr` whose only failure is a
-# missing toolkit is not a red tree: say which recipe could not run, and let CI
-# answer that half.
+# missing tool is not a red tree: say which recipe could not run, run `just
+# setup` if that is the fix, and let CI answer the rest.
 
 # Every CI job, locally. Run this before opening a PR.
-pre-pr: ci workflows-check audit portable-check coverage check-cuda build-cuda
+pre-pr: ci portable-check audit coverage workflows-check check-cuda build-cuda
     @echo "pre-pr: every CI job is green here"
 
 # The `workflows` CI job: actionlint over .github/workflows. See `just setup`.
