@@ -23,10 +23,7 @@ the recipe is a false green.
 `.github/workflows/`), and `coverage` (`just coverage`) — none reproduced by
 `just ci` itself.
 
-**`just pre-pr` runs all six, here, in CI's order.** Use it before opening a
-PR, and use it instead of `just ci` when the question is "is this ready".
-Everything it finds is something a pushed branch would have found a round trip
-later, on someone else's runner. Two honest caveats:
+**`just pre-pr` runs all six, here.** Use it before opening a PR, and use it instead of `just ci` when the question is "is this ready". Its order is deliberately not `ci.yml`'s: `just` stops the prerequisite chain at the first failure, so the recipe is sorted by what a failure would *mean* — the `justfile` owns that order and says why, and it is not restated here. Everything `pre-pr` finds is something a pushed branch would have found a round trip later, on someone else's runner. Two honest caveats:
 
 - `portable-check` builds outside a driverless container, so it is weaker than
   `ci.yml`'s `portable-build`. CI remains the authority on §22.1.
@@ -40,9 +37,7 @@ threshold against a tree whose unimplemented seams are `todo!()` would measure
 the seams and be gamed by deleting them. The lcov file is an artifact and the
 summary is in the run's step summary.
 
-**A change is not done until `just ci` is green, and you have seen it.** Report
-the real output. If it fails and you are out of scope to fix it, say which
-recipe failed and why.
+**A change is not done until `just pre-pr` is green, and you have seen it.** Report the real output. If it fails and you are out of scope to fix it, say which recipe failed and why.
 
 ## Triage
 
@@ -56,8 +51,11 @@ recipe failed and why.
 | `doc-links` | A relative link points at a file that is not there, or a `#anchor` at a heading that is not there | Fix the link. If a heading was renamed, every reference to it moved — the check names all of them at once |
 | `changelog-check` | `CHANGELOG.md` is out of order, or holds more than five released sections | `just changelog-rotate`. If it is an ordering complaint, the new section went in below an older one — newest first |
 | `docs` | Broken intra-doc link, `RUSTDOCFLAGS=-D warnings` | Fix the link; do not drop the doc comment |
-| `workflows` (CI job, no recipe) | actionlint found a real error in `.github/workflows/` — a bad expression, an undefined output, a shell mistake | Fix the workflow. `filter_mode: nofilter`, so a finding may be in a file this PR did not touch, and it is still worth fixing |
-| `coverage` (CI job) | `just coverage` failed to *run* — never a percentage | Usually the same failure `just test` would give; read it as a test failure |
+| `portable-check` | The default binary failed to build, to run, or to prove its linkage (§22.1, §19.6.5) | Read which of the three failed. A linkage failure means something pulled CUDA into the default build — see the `face-layer` skill |
+| `audit` | `cargo-deny` found an advisory, a banned or duplicated crate, a licence outside the allowlist, or an unexpected source | Fix the dependency. `deny.toml` is the policy, and widening it is a decision rather than a fix |
+| `coverage` | `just coverage` failed to *run* — never a percentage | Usually the same failure `just test` would give; read it as a test failure |
+| `workflows-check` | actionlint found a real error in `.github/workflows/` — a bad expression, an undefined output, a shell mistake | Fix the workflow. CI runs the same binary through reviewdog with `filter_mode: nofilter`, so a finding may be in a file this PR did not touch and is still worth fixing |
+| `check-cuda`, `build-cuda` | Either the `cuda` feature stopped compiling, or this host has no CUDA toolkit | Two different things — read the error before blaming the tree. No toolkit here means naming the recipe and letting CI answer, never rounding to green |
 
 Two failures that look like flakes and are not:
 
@@ -68,19 +66,20 @@ Two failures that look like flakes and are not:
   table has become load-bearing for correctness. See the
   `transposition-safety` skill — this is rule 2, and it is a blocker.
 
-## Outside the gate, on purpose
+## Outside `just ci`, on purpose
 
-These are slow, large, or device-dependent. They run nightly. Do not add them to
-`just ci`; do run the relevant one when you have touched what it covers.
+Two different things get called "outside the gate", and conflating them is how a job quietly stops being run.
+
+**Inside `pre-pr`, outside `just ci`.** `portable-check`, `audit`, `coverage`, `workflows-check`, `check-cuda` and `build-cuda` each run on every pull request as their own `ci.yml` job. They are not in `just ci` because they need a container, a network, or a tool the `gate` job does not have — never because they are optional.
+
+**Outside the gate entirely, and nightly-only.** `nightly.yml` runs exactly two suites, and neither can block a merge:
 
 ```bash
-just coverage        # §20 — lcov + a summary table. Reported, never gated
 just test-tt-off     # §5.4 — the search suite with the table disabled
-just test-load       # §20.4 — millions of rows, a peak-RSS gate. Minutes to hours
 just bench           # §20.9 — criterion baselines, tracked as numbers not pass/fail
-just check-cuda      # §20.10 — the cuda feature compiles, no device needed
-just audit           # cargo-deny: advisories, bans, licences, sources
 ```
+
+`just test-load` (§20.4 — millions of rows and a peak-RSS gate, minutes to hours) runs in neither: its `nightly.yml` job is commented out until `tests/load.rs`'s `todo!()` bodies exist. Do not add any of these three to `just ci`; do run the relevant one when you have touched what it covers.
 
 `just bench` produces baselines, not assertions. A run slower than yesterday is a
 question, not a failure — and a new number belongs in

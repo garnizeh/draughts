@@ -25,9 +25,7 @@ the same thing by construction.
 just pre-pr
 ```
 
-is the one to run before opening a pull request: every job `ci.yml` runs, here,
-in CI's order. Finding a broken CUDA build or a bad workflow expression locally
-costs a minute; finding it on a pushed branch costs a round trip and a red PR.
+is the one to run before opening a pull request: every job `ci.yml` runs, here. Not in CI's order — `just` stops the prerequisite chain at the first failure, so the recipe is sorted by what a failure would *mean*, and the `justfile` is where that reasoning lives. Finding a broken CUDA build or a bad workflow expression locally costs a minute; finding it on a pushed branch costs a round trip and a red PR.
 
 Two things it cannot fully reproduce, and says so rather than pretending
 otherwise: `portable-check` builds outside a driverless container, so CI stays

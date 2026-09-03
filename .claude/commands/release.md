@@ -20,6 +20,6 @@ behaviour is a release whose notes are wrong.
    change a reader will care about, fix the prose. These are the release notes;
    `release.yml` publishes them verbatim.
 4. `just release-check $ARGUMENTS` — must print `$ARGUMENTS is ready`.
-5. `just ci`.
+5. `just pre-pr`.
 6. Report the actual output, then stop. Do **not** create a tag: merging this PR
    is what cuts it.

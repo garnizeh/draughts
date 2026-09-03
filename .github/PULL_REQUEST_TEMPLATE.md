@@ -18,10 +18,14 @@ Closes #
 
 ## The gate
 
-<!-- Paste the actual output. Do not describe a run you did not make. -->
+<!--
+Paste the actual output. Do not describe a run you did not make. `just pre-pr` is
+every job CI runs, not the `gate` one alone; if a recipe could not run here — the
+CUDA path needs a toolkit — name it rather than rounding it up to green.
+-->
 
 ```
-$ just ci
+$ just pre-pr
 ```
 
 ## The five rules

@@ -59,7 +59,7 @@ thing by construction.
 ```bash
 just                    # list every recipe
 just pre-pr             # every CI job, locally. The pre-PR check
-just ci                 # one of six: fmt lint test device-check format-version-check changelog-check doc-links docs
+just ci                 # one of six: fmt-check lint test device-check format-version-check changelog-check doc-links docs
 just test               # the suite
 just test-one NAME      # one test or module, with output
 just check              # type-check, no binary
@@ -74,14 +74,7 @@ just coverage           # lcov + a summary. Reported, never gated
 *and* `just build-cuda` — two recipes, one job), `supply-chain` (`just audit`),
 `workflows` (actionlint), and `coverage` (`just coverage`).
 
-**`just pre-pr` runs all six, in CI's order**, as seven prerequisites — use it,
-not `just ci`, when the question is whether a change is ready. The two things it
-cannot fully reproduce say so: `portable-check` builds outside a driverless
-container, and the CUDA recipes need a toolkit on this host. Outside the gate
-entirely,
-deliberately, and nightly-only: `just test-tt-off`, `just bench`. `just
-test-load` runs neither — its CI job is commented out in `nightly.yml` until
-`tests/load.rs`'s `todo!()` bodies are implemented.
+**`just pre-pr` runs all six, as seven prerequisites** — use it, not `just ci`, when the question is whether a change is ready. Its order is deliberately not `ci.yml`'s: `just` stops the prerequisite chain at the first failure, so the recipe is sorted by what a failure would *mean* rather than by what CI happens to list first. The `justfile` owns that order and states its reasoning; it is not restated here, because a list whose order is decided elsewhere goes stale wherever it is copied. The two things `pre-pr` cannot fully reproduce say so: `portable-check` builds outside a driverless container, and the CUDA recipes need a toolkit on this host. Outside the gate entirely, deliberately, and nightly-only: `just test-tt-off`, `just bench`. `just test-load` runs neither — its CI job is commented out in `nightly.yml` until `tests/load.rs`'s `todo!()` bodies are implemented.
 
 Releasing is not part of the gate and never runs on a pull request:
 
