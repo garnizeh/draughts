@@ -13,6 +13,8 @@ Five phases. The last two are the point: a finding that names a class of mistake
 
 Before triaging anything, read [LESSONS.md](LESSONS.md). It is not a log of past reviews — it is a set of conditional checks earned from them: *if you changed a validator, check it rejects the missing case; if you changed documentation, find the other four files that say the same thing.*
 
+A rule may carry a `⚠ Looks like a violation but is not` note. Read it before acting on that rule: it lists what will look wrong and is not, and it is there because someone already chased those ghosts. A rule that wastes the reader three times gets ignored the fourth, on the occasion that counted.
+
 Two reasons to read it before phase 1 rather than after. It tells you what to look for in the diff under review, which is often faster than reading the findings. And it tells you whether a finding you are about to dismiss as a one-off has been seen before — because **"an instance is just a bug" is right the first time and wrong the third**, and there is no other way to notice the second occurrence.
 
 Each rule carries an **origin** — the finding that created it, absent on the two kinds that were not learned here, which that file defines — and two counters: **missed**, the times it existed and a reviewer caught the mistake anyway, and **saved**, the times it was read before a PR and caught it first. `saved / (saved + missed)` is the rule's hit rate, and it is the number that says whether a rule is pulling its weight. A high `missed` with a zero `saved` does not mean the class is stubborn; it means **the text is not working**, and rewriting it is worth more than bumping it.
@@ -102,6 +104,8 @@ Bump a counter by **appending a `#PR (date)` entry to its list**, never by editi
 
 A finding that creates a new rule is that rule's **origin**, never a miss: the rule did not exist, so it cannot have failed. A finding on a class already in the file is a **miss**, and it is the entry worth writing carefully, because it is the only one that criticises the writing rather than the world.
 
+**If applying the rule turned up things that looked wrong and were not, write that down as a `⚠ Looks like a violation but is not` note on the rule itself** — not in the commit message, and not in RETIRED.md. The negative knowledge belongs where the next reader will be standing when they need it. It is also the cheapest signal that a rule is unmechanizable: if you cannot state the exceptions crisply enough for a person, no script will separate them either.
+
 **Record a `saved` only when you can name what it caught**, as concretely as a miss names its finding. `saved` is self-reported and has no review thread behind it; a save with no named defect is a rule congratulating itself, and since the hit rate divides by the sum of both, inflating it corrupts the only number that ranks the rules.
 
 A rule with a miss is also hoisted into the *Failed before* block at the top, and demoted out of it after a release with no new miss.
@@ -120,4 +124,5 @@ PR #99 produced four findings. Two named classes and became permanent checks ins
 - **Never leave LESSONS.md unwritten.** A review that changes nothing about how the next mistake is caught was a review half-read.
 - **Never write a story where a rule belongs.** The file is read by someone about to make a change, not by someone studying the past.
 - **Never record a `saved` you cannot point at.** It is the only counter with nothing external backing it, which makes it the only one that can quietly become fiction — and since the hit rate divides by the sum of both, inflating it does not merely flatter one rule, it corrupts the number that ranks them all.
+- **Never leave a false-positive trap undocumented once you have fallen into it.** The note costs one sentence and is the difference between a rule people apply and a rule people skim past.
 - **Never file a miss as an origin.** It is the flattering mistake: an origin says the world was surprising, a miss says your sentence failed. Only the second one tells anyone to rewrite it.
