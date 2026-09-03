@@ -1,6 +1,6 @@
 ---
 name: merge-gate
-description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (formatting, clippy, the suite, doc examples, and the static checks for device construction, format_version, the CHANGELOG, the documentation links and the seam lists) — plus the nightly suites (test-tt-off, test-load, bench). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
+description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (formatting, clippy, the suite, doc examples, and the static checks for device construction, format_version, the CHANGELOG, the documentation links and the seam lists) — plus the nightly suites (test-tt-off, test-load, bench). Also owns the cleanup after a PR lands — back to main, fast-forward, delete the branch locally and on origin, prune the stale tracking refs. Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, when deciding whether something belongs in the gate or in nightly, and immediately after a merge.
 ---
 
 # The gate
@@ -134,3 +134,27 @@ run `git tag` — see the `releasing` skill, which owns that procedure.
 Every finding gets a reply on its own thread — pointing at the fix, or stating why it stands as is — before the PR is done. A PR is not finished with unanswered threads any more than it is finished with a red `just pre-pr`.
 
 The procedure belongs to the **`review-response`** skill, which owns it end to end: the endpoint that silently omits half a review, how to verify a finding against code that has moved since, and the phase most people skip — deciding whether a finding named a class worth a permanent check, and writing what the review taught into `.claude/skills/review-response/LESSONS.md` so the next one starts from it. Load that skill rather than working from memory; two of PR #99's four findings had a correct diagnosis attached to a fix that would have made things worse, and that is the ordinary case.
+
+## After the merge
+
+A merged PR is not finished when GitHub says "Merged". It is finished when this working copy is back on an up-to-date `main` and the branch is gone from both sides. Neither half happens on its own: the local branch survives the merge, and so does the remote-tracking ref for a remote branch the server has already deleted. Skipped once, that is untidy; skipped for a month, `git branch` is a column of dead names and `git branch -r` advertises refs that do not exist, which is exactly the state in which the next branch gets cut from the wrong place.
+
+```bash
+git status                                        # a dirty tree is a reason to stop, not to switch over
+BRANCH=$(gh pr view PR --json state,headRefName --jq 'select(.state == "MERGED") | .headRefName')
+git switch main
+git pull --ff-only origin main                    # take the merge, never rebuild it
+git diff --quiet main "$BRANCH" && git branch -D "$BRANCH"   # identical trees, then delete
+git push origin --delete "$BRANCH"                # normally already gone; see below
+git fetch --prune                                 # drop tracking refs the server already deleted
+```
+
+It is written to be pasted, so every line has to be one that can actually succeed here — which is why the deletion is `-D` behind a content check rather than the `-d` a reader would expect, and the paragraph below is the argument for that rather than an excuse for it.
+
+- **Confirm it merged before deleting anything, and take the branch name from the API rather than from memory.** The `select` yields nothing unless `state` is `MERGED` — a PR closed unmerged reads `CLOSED`, and its branch is the only copy of the work — so `$BRANCH` is empty in exactly the case where deleting would lose something. Every later line then fails closed: `git diff` rejects an empty revision instead of guessing one, which short-circuits the `&&` before any delete runs. `headRefName` also removes the other way to delete the wrong branch, which is typing its name.
+- **`git pull --ff-only`.** Without it, a stray local commit on `main` turns into a merge commit that nobody asked for and that the next push offers to the world. With it, the same situation is a loud failure, which is what it should have been.
+- **`-D` behind a content check, because `-d` cannot succeed here.** `-d` refuses to delete a branch whose commits are not in `main`, and that ancestry test is the usual guard between a wrong branch name and lost work. **It refuses every time in this repository**: squash is the only permitted merge method (`mergeCommitAllowed` and `rebaseMergeAllowed` are both false), so the commit on `main` is never the branch's commit and the test cannot pass even for a branch that merged perfectly. A sequence whose deletion step always fails is not a safe sequence, it is one whose reader learns to reach for `-D` on reflex — and *that* is how a branch gets lost, since a bare `-D` asks no question at all. So the guard is replaced rather than dropped, by a stronger and more direct one: `git diff --quiet main "$BRANCH"` compares the two *trees* (two dots — same content, not same history) and passes only if `main` already contains every byte of the branch. Ancestry is a proxy for that; this is the thing itself, and unlike `-d` it is true after a squash.
+- **The remote half is already done.** `deleteBranchOnMerge` is on for this repository, so `git push origin --delete "$BRANCH"` will normally fail with "remote ref does not exist" — that is success arriving early, not an error to chase. Run it when the branch is still listed, skip it when `git fetch --prune` already took the tracking ref away. The setting is a repository option someone can turn off, which is why the line stays in the sequence rather than being dropped as redundant.
+- **`git status` first, and read it.** Uncommitted work in the tree is a reason to stop and ask, not to `git switch` over the top of it. It is the first line of the block for that reason, not as a formality.
+
+The same sequence applies after a release PR lands: the version bump is merged like anything else, and `release.yml` cuts the tag from `main` afterwards — see the `releasing` skill, and do not run `git tag` here either.
