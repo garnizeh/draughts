@@ -175,12 +175,36 @@ def scan_archive_pages() -> list[tuple[str, str | None]]:
     return pages
 
 
-def write_index(pages: list[tuple[str, str | None]]) -> None:
+def archive_containment_problem() -> str | None:
+    """None if ARCHIVE is safe to write into; an error message otherwise.
+
+    Checking a page for a symlink is not enough: if `docs/` or
+    `docs/changelog/` is itself a link to somewhere else, a fresh file inside
+    it is not a symlink and `write_text` lands outside the repository
+    entirely. Resolve the directory and require it to stay under ROOT —
+    before it is created and before anything is written into it, on every
+    path that writes into ARCHIVE, not only the one that archives a page.
+    """
+    if ARCHIVE.resolve().is_relative_to(ROOT.resolve()):
+        return None
+    return (
+        f"{ARCHIVE} resolves outside the repository ({ARCHIVE.resolve()}) — "
+        "refusing to write"
+    )
+
+
+def write_index(pages: list[tuple[str, str | None]]) -> str | None:
+    """Write the archive index. None on success, an error message if the
+    index itself is a symlink — refused wherever it points, dangling
+    included, for the same reason an archive page is."""
+    target = ARCHIVE / "README.md"
+    if target.is_symlink():
+        return f"{target} is a symlink — refusing to write the archive index"
     pages = sorted(pages, key=lambda page: version_key(page[0]), reverse=True)
     rows = "\n".join(
         f"| [{version}]({version}.md) | {date or '—'} |" for version, date in pages
     )
-    (ARCHIVE / "README.md").write_text(
+    target.write_text(
         "# Changelog archive\n"
         "\n"
         f"[CHANGELOG.md](../../CHANGELOG.md) keeps `[Unreleased]` and the {KEEP} most\n"
@@ -201,6 +225,7 @@ def write_index(pages: list[tuple[str, str | None]]) -> None:
         ),
         encoding="utf-8",
     )
+    return None
 
 
 def main() -> int:
@@ -250,9 +275,14 @@ def main() -> int:
             # A run interrupted between CHANGELOG.write_text() and write_index()
             # leaves `over <= 0` on retry with a stale or missing archive index.
             # Rebuild it whenever the archive directory exists, so a retry
-            # finishes what the interrupted run started.
+            # finishes what the interrupted run started. The containment and
+            # leaf-symlink guards apply here exactly as they do to a real
+            # rotation — this branch writes into ARCHIVE too.
             if ARCHIVE.is_dir():
-                write_index(scan_archive_pages())
+                problem = archive_containment_problem() or write_index(scan_archive_pages())
+                if problem:
+                    print(f"changelog-rotate: {problem}", file=sys.stderr)
+                    return 1
             print(f"changelog-rotate: nothing to archive ({len(released)}/{KEEP})")
         return 0
 
@@ -265,17 +295,9 @@ def main() -> int:
         )
         return 1
 
-    # Checking the page for a symlink is not enough: if `docs/` or
-    # `docs/changelog/` is itself a link to somewhere else, a fresh
-    # `<version>.md` inside it is not a symlink and `write_text` lands outside
-    # the repository entirely. Resolve the directory and require it to stay
-    # under ROOT, before it is created and before anything is written into it.
-    if not ARCHIVE.resolve().is_relative_to(ROOT.resolve()):
-        print(
-            f"changelog-rotate: {ARCHIVE} resolves outside the repository "
-            f"({ARCHIVE.resolve()}) — refusing to write",
-            file=sys.stderr,
-        )
+    problem = archive_containment_problem()
+    if problem:
+        print(f"changelog-rotate: {problem}", file=sys.stderr)
         return 1
 
     ARCHIVE.mkdir(parents=True, exist_ok=True)
@@ -331,7 +353,10 @@ def main() -> int:
 
     CHANGELOG.write_text(render(preamble, kept, references), encoding="utf-8")
 
-    write_index(scan_archive_pages())
+    problem = write_index(scan_archive_pages())
+    if problem:
+        print(f"changelog-rotate: {problem}", file=sys.stderr)
+        return 1
 
     print(f"changelog-rotate: CHANGELOG.md now holds {KEEP} released section(s)")
     return 0
