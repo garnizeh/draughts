@@ -165,6 +165,16 @@ def version_key(version: str) -> tuple[int, ...]:
         return (0,)
 
 
+def scan_archive_pages() -> list[tuple[str, str | None]]:
+    pages = []
+    for page in ARCHIVE.glob("*.md"):
+        if page.name == "README.md":
+            continue
+        match = re.search(r"^Released (\d{4}-\d{2}-\d{2})\.", page.read_text(encoding="utf-8"), re.M)
+        pages.append((page.stem, match.group(1) if match else None))
+    return pages
+
+
 def write_index(pages: list[tuple[str, str | None]]) -> None:
     pages = sorted(pages, key=lambda page: version_key(page[0]), reverse=True)
     rows = "\n".join(
@@ -237,6 +247,12 @@ def main() -> int:
                 f"limit {KEEP}"
             )
         else:
+            # A run interrupted between CHANGELOG.write_text() and write_index()
+            # leaves `over <= 0` on retry with a stale or missing archive index.
+            # Rebuild it whenever the archive directory exists, so a retry
+            # finishes what the interrupted run started.
+            if ARCHIVE.is_dir():
+                write_index(scan_archive_pages())
             print(f"changelog-rotate: nothing to archive ({len(released)}/{KEEP})")
         return 0
 
@@ -315,13 +331,7 @@ def main() -> int:
 
     CHANGELOG.write_text(render(preamble, kept, references), encoding="utf-8")
 
-    pages = []
-    for page in ARCHIVE.glob("*.md"):
-        if page.name == "README.md":
-            continue
-        match = re.search(r"^Released (\d{4}-\d{2}-\d{2})\.", page.read_text(encoding="utf-8"), re.M)
-        pages.append((page.stem, match.group(1) if match else None))
-    write_index(pages)
+    write_index(scan_archive_pages())
 
     print(f"changelog-rotate: CHANGELOG.md now holds {KEEP} released section(s)")
     return 0
