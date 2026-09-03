@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.4 |
-| **Status** | Approved architecture revision — supersedes v1.3 |
+| **Version** | 1.5 |
+| **Status** | Approved architecture revision — supersedes v1.4 |
 | **Primary stack** | Rust, SQLite/WAL, HTMX, Alpine.js, in-process Hugging Face Candle LLM on CUDA |
 | **Target host** | Single machine — 64 GB RAM, Xeon E5-2690 v4 (14C/28T), NVIDIA RTX 3050 6 GB. **No component requires the GPU** |
 | **Deployment unit** | One executable, one SQLite file, two `.gguf` model files (one per device profile) |
@@ -30,7 +30,7 @@ The guiding principle is that **the engine is authoritative and everything else 
 
 **If you are working on the GPU path** — [§0.4](00-revision-history.md#04-what-changed-in-14) for why it exists, then [§7.4.1](07-face-llm-layer.md#741-device-selection), [§7.5](07-face-llm-layer.md#75-model-selection-and-memory-budget), [§16.6](16-memory-strategy.md#166-vram-budget--new-in-14), [§19.6](19-extensibility-roadmap.md#196-gpu-acceleration), and [§20.10](20-testing-strategy.md#2010-device-parity-and-cuda-tests). Read [§19.6.6](19-extensibility-roadmap.md#1966-what-cuda-is-not-for--new-in-14) before proposing any other use of the device.
 
-**If you are upgrading from v1.0 or v1.1** — [§0](00-revision-history.md) first, then [Appendix C](appendix-c-migration-from-v1-0.md) and [Appendix E](appendix-e-change-checklist.md). **From v1.3** — [§0.4](00-revision-history.md#04-what-changed-in-14) and [Appendix F](appendix-f-v13-to-v14-checklist.md).
+**If you are upgrading from v1.0 or v1.1** — [§0](00-revision-history.md) first, then [Appendix C](appendix-c-migration-from-v1-0.md) and [Appendix E](appendix-e-change-checklist.md). **From v1.3** — [§0.4](00-revision-history.md#04-what-changed-in-14) and [Appendix F](appendix-f-v13-to-v14-checklist.md). **From v1.4** — [§0.5](00-revision-history.md#05-what-changed-in-15) alone; it is one subsection and its configuration surface.
 
 ---
 
@@ -40,12 +40,12 @@ The guiding principle is that **the engine is authoritative and everything else 
 
 | § | Document | What it settles |
 |---|---|---|
-| 0 | [Revision History](00-revision-history.md) | The six shifts that produced v1.1, the naming and corrections in v1.2, the model re-baseline in v1.3, and the host and CUDA re-baseline in v1.4 |
+| 0 | [Revision History](00-revision-history.md) | The six shifts that produced v1.1, the naming and corrections in v1.2, the model re-baseline in v1.3, the host and CUDA re-baseline in v1.4, and the draw rules stated in v1.5 |
 | 1 | [Executive Summary](01-executive-summary.md) | The two execution modes and what the MVP emphasizes |
 | 2 | [Scope and Constraints](02-scope-and-constraints.md) | What is in, what is out, the real hardware baseline, and the constraint that the LLM does not play draughts |
 | 3 | [High-Level System Context](03-system-context.md) | Every component in one process, the files on disk, and the one optional device |
 | 4 | [Separation of Concerns](04-separation-of-concerns.md) | Per-layer responsibilities and, more usefully, forbidden responsibilities |
-| 5 | [Runtime Components](05-runtime-components.md) | The seven runtime components, one subsection each |
+| 5 | [Runtime Components](05-runtime-components.md) | The seven runtime components, one subsection each, and the draw rules the Rules Core owes the game |
 
 ### The Engine
 
@@ -117,7 +117,7 @@ The guiding principle is that **the engine is authoritative and everything else 
 | C | [Migration from v1.0](appendix-c-migration-from-v1-0.md) | Ten ordered steps, and what rollback does |
 | D | [Risks and Open Questions](appendix-d-risks-and-open-questions.md) | Thirteen recorded risks, so they stay decisions rather than discoveries |
 | E | [v1.0 → v1.1 Change Checklist](appendix-e-change-checklist.md) | Historical. Every value that moved in that revision |
-| F | [v1.3 → v1.4 Change Checklist](appendix-f-v13-to-v14-checklist.md) | **Current.** Every value that moved when the assumed host was replaced with the real one |
+| F | [v1.3 → v1.4 Change Checklist](appendix-f-v13-to-v14-checklist.md) | **The current figures.** Every value that moved when the assumed host was replaced with the real one. v1.5 moved none, and has no checklist of its own — see [§0.5](00-revision-history.md#05-what-changed-in-15) |
 
 ---
 
@@ -127,9 +127,9 @@ The guiding principle is that **the engine is authoritative and everything else 
 - **Diagrams** are Mermaid and render inline on GitHub and in any Mermaid-aware viewer. ASCII blocks are retained wherever they carry something a diagram cannot — a byte layout, a sizing calculation, a directory tree.
 - **Code** is illustrative Rust, SQL, TOML, and HTML. It specifies shape and intent, not a finished implementation; `todo!()` appears where a body is deliberately unspecified.
 - **`§N` in a table's "Rev" or "Primary Sections" column** points at the section that owns the decision, not at the one that mentions it.
-- **Bold in tables** marks material introduced in the revision the table is discussing — v1.1 in the historical tables, v1.4 in the current ones.
+- **Bold in tables** marks material introduced in the revision the table is discussing — v1.1 in the historical tables, v1.4 and v1.5 in the current ones.
 - **Hardware figures are derived, not asserted.** Every memory, latency, and throughput number traces back to the host in [§2.4](02-scope-and-constraints.md#24-hardware-baseline) through a stated relation, so it can be re-derived for a different machine rather than waiting for a measurement to contradict it. Two revisions have now been caused by a number that was not derived.
 
 ---
 
-*Draughts — System Architecture, Version 1.4.*
+*Draughts — System Architecture, Version 1.5.*

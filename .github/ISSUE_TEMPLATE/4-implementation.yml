@@ -17,7 +17,7 @@ body:
         opposite directions and both are wanted. Everything particular to this issue —
         what lands, what it depends on, which tests must exist and what they assert, what
         will be measured, which files it opens — belongs here in full, because it exists
-        nowhere else. The specification does not: it is approved at v1.4, so cite the §
+        nowhere else. The specification does not: it is approved at v1.5, so cite the §
         rather than paraphrasing it, and quote it only where the exact wording is what the
         issue turns on.
 

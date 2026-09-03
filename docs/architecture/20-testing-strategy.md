@@ -9,7 +9,8 @@ Every 1.1 shift introduces a way for the system to be *fast and wrong*: a shared
 - Multi-jump sequences.
 - Promotion behavior.
 - Terminal detection.
-- Draw rules.
+- **Draw rules** ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)) — four properties, of which the last is the one that protects something other than itself. The non-progress counter resets on a capture and on a man move and on nothing else. The **same Zobrist key, side to move included**, reaching `repetition_count` occurrences is a draw — counting the occurrence the window opened on, and counting only since the last capture or promotion, which are the two halves the ambiguous phrasing "the third repetition" loses. The adjudicator reads the configured thresholds rather than a constant. And **`apply_move` never returns `Finished(Draw)`**, because a draw adjudicated by the Rules Core would make terminality path-dependent and put [§20.5](#205-transposition-table-tests) at risk.
+- **Random play terminates.** A large corpus of random games under the default draw policy, every one of them finishing without reaching any playout cap — §5.3.1's termination proof asserted rather than argued.
 - Bitboard correctness.
 - **Zobrist correctness** — incremental update after `apply_move` equals full recomputation, over a large random-play corpus.
 - **Zobrist key stability** — the committed key table hashes to a known constant. A build that silently regenerates its keys invalidates every persisted `board_hash`, and [§13.7](13-data-dictionary.md#137-format_version--new-in-11) makes that a `format_version` bump rather than an accident.

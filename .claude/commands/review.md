@@ -3,7 +3,7 @@ description: Review the current change against the architecture and the five rul
 argument-hint: "[optional: paths or a base ref]"
 ---
 
-Review this change against `docs/architecture/` v1.4 and the five rules in
+Review this change against `docs/architecture/` v1.5 and the five rules in
 CLAUDE.md: $ARGUMENTS
 
 Use the `architecture-reviewer` subagent. Give it the diff scope (default: the

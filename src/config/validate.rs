@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use super::{CircuitBreakerConfig, Config};
+use super::{CircuitBreakerConfig, Config, DrawConfig};
 use crate::face::DeviceKind;
 
 // --- Host memory, §16.1 / §16.3 --------------------------------------------
@@ -106,6 +106,12 @@ pub enum ValidationError {
 
     #[error("{key} must be greater than zero")]
     MustBePositive { key: &'static str },
+
+    #[error(
+        "rules.draw.repetition_count = {0} would draw a game at the opening position; \
+         a repetition rule needs at least two occurrences to have seen one (§5.3.1)"
+    )]
+    RepetitionCountTooLow(u32),
 }
 
 /// The outcome of validation. Warnings do not prevent startup; errors do.
@@ -274,6 +280,19 @@ fn check_shapes(config: &Config, report: &mut ValidationReport) {
                 .to_string(),
         );
     }
+    // The same again for the draw policy, and it goes away when the seams in
+    // `rules::moves` and the game loop are implemented (§5.3.1). The permanent
+    // half of this — that a departed policy is still recorded as
+    // `english_draughts` — is in `check_draw_policy` and stays after that.
+    if config.rules.draw != DrawConfig::default() {
+        report.warnings.push(
+            "rules.draw is not yet wired to the rules core or the game loop, which do not \
+             adjudicate draws yet; this value has no effect"
+                .to_string(),
+        );
+    }
+
+    check_draw_policy(config, report);
 
     if config.engine.lab.time_budget_ms != 0 {
         report.warnings.push(
@@ -283,6 +302,63 @@ fn check_shapes(config: &Config, report: &mut ValidationReport) {
              invisible confound (§16.2)"
                 .to_string(),
         );
+    }
+}
+
+/// The draw policy — checked for shape, and for variant (§23.1).
+///
+/// The two shape checks are refusals because they describe something that is
+/// not a game: `non_progress_plies = 0` draws every game before its first move,
+/// and `repetition_count < 2` draws one at the opening position, having seen no
+/// repetition at all. Everything else is accepted, because being movable is the
+/// entire point of these being keys (§19.4) — but not in silence, because
+/// `games.rules` records `english_draughts` for every game whatever thresholds
+/// it was actually played under, and a dataset whose draws came from a
+/// threshold nobody remembers changing carries an invisible confound.
+fn check_draw_policy(config: &Config, report: &mut ValidationReport) {
+    let draw = &config.rules.draw;
+    let defaults = DrawConfig::default();
+
+    if draw.non_progress_plies == 0 {
+        report.errors.push(ValidationError::MustBePositive {
+            key: "rules.draw.non_progress_plies",
+        });
+    }
+
+    if draw.repetition_count < 2 {
+        report.errors.push(ValidationError::RepetitionCountTooLow(
+            draw.repetition_count,
+        ));
+    }
+
+    let moved: Vec<&'static str> = [
+        (
+            "rules.draw.non_progress_plies",
+            draw.non_progress_plies != defaults.non_progress_plies,
+        ),
+        (
+            "rules.draw.non_progress_reset",
+            draw.non_progress_reset != defaults.non_progress_reset,
+        ),
+        (
+            "rules.draw.repetition_count",
+            draw.repetition_count != defaults.repetition_count,
+        ),
+        (
+            "rules.draw.repetition_window",
+            draw.repetition_window != defaults.repetition_window,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, departed)| departed.then_some(key))
+    .collect();
+
+    if !moved.is_empty() {
+        report.warnings.push(format!(
+            "{} departs from the english_draughts draw rules in §5.3.1; games played \
+             under this policy are still recorded with rules = \"english_draughts\"",
+            moved.join(", ")
+        ));
     }
 }
 
@@ -641,4 +717,91 @@ mod tests {
     }
 
     use crate::config::LimitsConfig;
+
+    /// §5.3.1: the shipped defaults are the English-draughts rules, and a
+    /// configuration that has not touched them says nothing about them.
+    #[test]
+    fn the_default_draw_policy_is_english_draughts_and_warns_about_nothing() {
+        let config = Config::default();
+        assert_eq!(config.rules.draw.non_progress_plies, 80);
+        assert_eq!(config.rules.draw.repetition_count, 3);
+
+        let report = validate(&config, DeviceKind::Cpu);
+        assert!(
+            !report.warnings.iter().any(|w| w.contains("rules.draw")),
+            "the defaults must not warn about themselves: {:?}",
+            report.warnings
+        );
+    }
+
+    /// A threshold of zero draws every game before its first move, which is not
+    /// a game. §23.1 refuses it rather than letting a batch produce a million
+    /// draws and no error.
+    #[test]
+    fn a_zero_non_progress_threshold_is_refused_and_names_its_key() {
+        let mut config = Config::default();
+        config.rules.draw.non_progress_plies = 0;
+
+        let report = validate(&config, DeviceKind::Cpu);
+
+        assert!(
+            report.errors.iter().any(|e| matches!(
+                e,
+                ValidationError::MustBePositive {
+                    key: "rules.draw.non_progress_plies"
+                }
+            )),
+            "expected a refusal naming the key, got {:?}",
+            report.errors
+        );
+    }
+
+    /// One occurrence is not a repetition: the opening position would be drawn
+    /// before anybody moved.
+    #[test]
+    fn a_repetition_count_below_two_is_refused() {
+        for count in [0, 1] {
+            let mut config = Config::default();
+            config.rules.draw.repetition_count = count;
+
+            let report = validate(&config, DeviceKind::Cpu);
+
+            assert!(
+                report
+                    .errors
+                    .iter()
+                    .any(|e| matches!(e, ValidationError::RepetitionCountTooLow(_))),
+                "repetition_count = {count} must be refused, got {:?}",
+                report.errors
+            );
+        }
+    }
+
+    /// §23.1: moving the policy is allowed — that is what makes it a key — but
+    /// it is never silent, because `games.rules` will still say
+    /// `english_draughts`. The warning names the keys that actually moved and
+    /// not the ones that did not.
+    #[test]
+    fn a_departed_draw_policy_warns_and_names_only_the_keys_that_moved() {
+        let mut config = Config::default();
+        config.rules.draw.non_progress_plies = 100;
+        config.rules.draw.non_progress_reset = NonProgressReset::Capture;
+
+        let report = validate(&config, DeviceKind::Cpu);
+
+        assert!(report.is_ok(), "a departure is a warning, not a refusal");
+
+        let warning = report
+            .warnings
+            .iter()
+            .find(|w| w.contains("english_draughts"))
+            .expect("a departed policy must warn");
+
+        assert!(warning.contains("rules.draw.non_progress_plies"));
+        assert!(warning.contains("rules.draw.non_progress_reset"));
+        assert!(!warning.contains("rules.draw.repetition_count"));
+        assert!(!warning.contains("rules.draw.repetition_window"));
+    }
+
+    use crate::config::NonProgressReset;
 }

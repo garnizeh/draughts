@@ -5,7 +5,7 @@
 | **Version** | 1.0 |
 | **Status** | Living document — amended as the work reveals itself |
 | **Last updated** | 2026-09-02 |
-| **Tracks** | [architecture v1.4](architecture/README.md), [§25 acceptance criteria](architecture/25-acceptance-criteria.md) |
+| **Tracks** | [architecture v1.5](architecture/README.md), [§25 acceptance criteria](architecture/25-acceptance-criteria.md) |
 | **Execution** | GitHub milestones and issues; this file is the plan, GitHub is the state |
 
 This document is the plan of record for getting `draughts` from scaffolding to
@@ -14,7 +14,7 @@ be transcribed into GitHub: every milestone below becomes a GitHub milestone,
 every issue row becomes a GitHub issue.
 
 It is deliberately thin. The specification already exists in
-[docs/architecture/](architecture/README.md) and is approved at v1.4 — an issue's
+[docs/architecture/](architecture/README.md) and is approved at v1.5 — an issue's
 job is to name the work and point at the § that owns it, not to restate it. When
 an issue and the architecture disagree, the architecture is right.
 

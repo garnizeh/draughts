@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         The architecture in [docs/architecture/](https://github.com/garnizeh/draughts/blob/main/docs/architecture/README.md)
-        is version 1.4 and approved. When the code and the document disagree, the
+        is version 1.5 and approved. When the code and the document disagree, the
         document is right and the code is the defect — this form is for that case.
 
         Two neighbours, so this one stays about behaviour:

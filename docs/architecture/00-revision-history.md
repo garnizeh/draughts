@@ -6,7 +6,8 @@
 | 1.1 | — | Re-baselined for a 128 GB host. Six architectural shifts, listed below. |
 | 1.2 | — | Editorial and consistency revision. No architectural change. Project named **Draughts**; the document is split into per-section files with an index; six corrections applied, listed in [§0.2](#02-what-changed-in-12); Mermaid diagrams added throughout. |
 | 1.3 | — | Face model re-baselined on the 1–2 core inference budget that §15.4 always specified. The default drops from an 8B class model to Qwen2.5-1.5B-Instruct; the Face memory budget drops from 16 GB to 8 GB and the released 8 GB goes to the transposition table. The GGUF loader is resolved against `candle-transformers` 0.11 and made architecture-dispatching, and GPU acceleration is put in scope as recorded intent (§19.6). See §0.3. |
-| 1.4 | Current | Re-baselined onto the **actual target host**: 64 GB (not 128), 14 physical cores (not 16+), two populated memory channels (not four), and an **RTX 3050 with 6 GB of VRAM and a working CUDA stack**. Every memory figure is halved or re-derived; CUDA moves from roadmap intent to the **default device for the Face layer**, because the measured bandwidth of this host makes the CPU path miss its own deadline. See §0.4. |
+| 1.4 | — | Re-baselined onto the **actual target host**: 64 GB (not 128), 14 physical cores (not 16+), two populated memory channels (not four), and an **RTX 3050 with 6 GB of VRAM and a working CUDA stack**. Every memory figure is halved or re-derived; CUDA moves from roadmap intent to the **default device for the Face layer**, because the measured bandwidth of this host makes the CPU path miss its own deadline. See §0.4. |
+| 1.5 | Current | States the **draw rules** [§5.3](05-runtime-components.md#53-game-rules-core) has always required and no section ever gave: the ACF 40-move non-progress rule and three-fold repetition, both **adjudicated by the game loop rather than by `apply_move`**, so that terminality stays a pure function of the position and [§20.5](20-testing-strategy.md#205-transposition-table-tests)'s guarantee survives by construction rather than by care. Both are configuration, with the English-draughts values as defaults. See §0.5. |
 
 ## 0.1 What Changed in 1.1
 
@@ -210,6 +211,49 @@ No structural decision was reopened. The seams held again, which is the second t
 - The `EvaluationStrategy` trait, the transposition table's two modes, the MPSC writer actor, the durability classes, the circuit breaker, and `format_version` are untouched.
 - The GPU arrived behind `candle_core::Device`, the seam [§19.6.5](19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve) was explicitly holding open for it — one constructor, one config key, no caller changed.
 - Section numbering is unchanged, so a 1.3 → 1.4 diff is reviewable section by section. [Appendix F](appendix-f-v13-to-v14-checklist.md) lists every value that moved.
+
+---
+
+## 0.5 What Changed in 1.5
+
+Version 1.5 adds one normative subsection and the configuration surface that goes with it. No decision is reopened, no contract is redesigned, and section numbering is unchanged, so a 1.4 → 1.5 diff is reviewable section by section.
+
+### 0.5.1 The Gap
+
+[§5.3](05-runtime-components.md#53-game-rules-core) listed "draw rules for MVP" among the Rules Core's responsibilities. [§20.1](20-testing-strategy.md#201-rules-tests) required them tested. [§19.4](19-extensibility-roadmap.md#194-rule-variants) listed "draw thresholds" among the policies a post-MVP variant layer would make swappable, under the sentence "for MVP, only one variant is enabled" — which reads as though the MVP's variant had fixed, known thresholds a later release would expose. It did not have them. No section stated which draw rules, no section stated a threshold, and [§23](23-configuration-example.md) had no `[rules]` table.
+
+Meanwhile every layer above the Rules Core was already written against a draw the Rules Core had no rule for: [§12](12-database-schema.md) and [§13](13-data-dictionary.md) encode `games.result = 3` as a draw, [§6](06-mcts-extensibility.md) has `GameResult::Draw` in the search's terminal enum and scores it `0.0`, and [§14](14-sampling-strategy.md) samples draws as an outcome class in `position_edges`.
+
+This is the same class of defect as [§0.3](#03-what-changed-in-13) and [§0.4.3](#043-consequence-two--the-cpu-inference-path-cannot-meet-its-own-deadline): two parts of the document depending on a number that neither of them states. It was found the same way, by reading the sections that consume a value looking for the section that owns it.
+
+### 0.5.2 What the Rules Are
+
+Both in [§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15), which is the only normative statement of them:
+
+| | Rule | Default |
+|---|---|---|
+| Non-progress | Drawn after N plies with no capture and no man move; the counter resets on a capture **or** a man move, never on a king move | **80 plies** — 40 moves per side, the ACF rule |
+| Repetition | Drawn when the same Zobrist key — which folds in the side to move — occurs for the Nth time since the last capture or promotion | **Three-fold**, counted since the last irreversible move |
+
+The reset condition is the load-bearing half of the first rule. Men only move forward, so man moves are bounded; captures are bounded by the pieces on the board; so resets are bounded and every game, including a random playout, reaches the threshold in finite time. That is a termination proof, and it is what [§6.3](06-mcts-extensibility.md#63-random-rollout-evaluator)'s rollout never had — `max_playout_ply` was carrying it, and an arbitrary cutoff in a rollout biases every value the rollout produces.
+
+### 0.5.3 The Decision That Was Not Obvious
+
+Which layer adjudicates. [§20.5](20-testing-strategy.md#205-transposition-table-tests) requires the transposition table to change how long a search takes and never what it returns, and [§6.7](06-mcts-extensibility.md#67-global-transposition-table--new-in-11) caches terminal detection under a key derived from the Zobrist hash alone. Terminality must therefore be a pure function of `(board, side_to_move)`, and **neither draw rule is one** — repetition depends on the path, and the non-progress counter is state carried beside the board. A draw adjudicated inside `apply_move` would have made `Finished` path-dependent and let the table serve a proven draw for a position that is not drawn.
+
+So the Rules Core keeps the counter and adjudicates neither rule; the game loop above it — the lab runner's per-worker loop and the Play Mode service — owns the key history and declares both draws. [§6.7.3](06-mcts-extensibility.md#673-probe-and-store) states it from the table's side. Three things follow: `TtKey` and `TtEntry` are untouched; `GameState` gains one `u32` and no `Vec`, which matters because it is cloned on every path the search walks ([§16.2](16-memory-strategy.md#162-engine-budgets)); and the search does not see repetition, which is an accepted and now-stated MVP limitation rather than a surprise.
+
+Had this been settled in a pull request instead, all three would have been settled by accident.
+
+### 0.5.4 Configuration Rather Than Constants
+
+The four values are `[rules.draw]` keys ([§23](23-configuration-example.md)) with the English-draughts numbers as defaults, which turns the first of [§19.4](19-extensibility-roadmap.md#194-rule-variants)'s four dials on early at the cost of one table and four validated keys. [§23.1](23-configuration-example.md#231-startup-validation) refuses `non_progress_plies = 0` and `repetition_count < 2`, and warns once, naming keys, when the policy departs from the defaults — because `games.rules` records `english_draughts` for a game whatever thresholds it was played under.
+
+One consequence reaches the engine: the rollout applies the non-progress rule, so the policy changes the distribution it samples and joins `EvaluatorIdentity` beside `max_playout_ply` ([§6.3](06-mcts-extensibility.md#63-random-rollout-evaluator)). That is the existing mechanism for exactly this problem, used rather than extended.
+
+### 0.5.5 Two Fine Rules, Written Down
+
+[§5.3.2](05-runtime-components.md#532-two-fine-rules-stated--new-in-15) states two English-draughts rules that [§2.1](02-scope-and-constraints.md#21-in-scope) settled by reference and that decide code in the move generator: a man crowned by a jump does not continue jumping, and a capture sequence must be completed but need not be maximal. Neither was in dispute; both were nowhere in the document, and the second is the kind of rule a move generator can get wrong while passing every test written by the person who got it wrong.
 
 ---
 

@@ -55,7 +55,7 @@ Concretely, on any issue that reports something observed:
   have already run.
 
 **The one thing not to expand is the specification.** Do not restate what §6.4
-says about tree search; cite §6.4. The architecture is approved at v1.4, it is
+says about tree search; cite §6.4. The architecture is approved at v1.5, it is
 already written, and a paraphrase of it inside an issue is a second source of
 truth that will drift. Maximum detail means maximum detail *about your
 situation* — the part that exists nowhere else. Cite the section, quote it only

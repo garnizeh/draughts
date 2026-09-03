@@ -12,7 +12,7 @@ One executable. One SQLite file. No daemons, no sidecars, no orchestration.
 
 > **Scaffolding stage — it builds, it validates its configuration, and it does not play yet.**
 >
-> The architecture is designed, reviewed, and approved at version 1.4. The tree now carries the module layout, the configuration types and their startup validation, device selection, the circuit breaker, the schema, and the route surface. Move generation, tree search, the writer actor loop, the lab worker pool, and GGUF loading are `todo!()` at the seams the architecture defines for them. [CHANGELOG.md](CHANGELOG.md) records what exists.
+> The architecture is designed, reviewed, and approved at version 1.5. The tree now carries the module layout, the configuration types and their startup validation, device selection, the circuit breaker, the schema, and the route surface. Move generation, tree search, the writer actor loop, the lab worker pool, and GGUF loading are `todo!()` at the seams the architecture defines for them. [CHANGELOG.md](CHANGELOG.md) records what exists.
 >
 > Version 1.4 re-baselined the whole document onto the machine it will actually be built on — 64 GB, 14 Broadwell cores on two memory channels, and an RTX 3050 — and made CUDA the default device for commentary, because on that host the CPU path misses its own deadline. See [§0.4](docs/architecture/00-revision-history.md#04-what-changed-in-14).
 
