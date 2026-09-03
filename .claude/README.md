@@ -46,6 +46,10 @@ not crates.io. And **nothing here runs `git tag`**: a release is cut by
 closed, so a hand-cut tag is a way to skip the only gate that guarantees the
 notes exist. The `releasing` skill says so at length.
 
+**There is no blanket allow over `just`**, and that is deliberate. A prefix rule over a command runner grants whatever the runner dispatches to, including recipes nobody has written yet, and the `justfile` can do anything a shell can. The cost is real and worth stating: the gate prompts. `just pre-pr` asks before it runs, and so does every recipe an agent reaches for. If that becomes the friction that matters, the fix is to allowlist the recipes that only inspect or build — `ci`, `pre-pr`, the checks, the builds — by name, and leave anything that removes, installs, serves or publishes to prompt. Allowlist the operations, never the runner; it is the same rule that keeps `gh api` off the list while `gh pr view` is on it.
+
+The `ask` on `just clean-data` no longer changes what happens: with nothing about `just` allowed, an unmatched invocation prompts anyway. It stays as a marker rather than as a gate — it is the one recipe that removes something, and a reader scanning the permission block should find that stated instead of inferring it.
+
 `.claude/settings.local.json` is git-ignored for per-developer overrides. It
 can widen what is allowed, but it cannot narrow what `settings.json` asks about:
 permission rules resolve by type, `deny` > `ask` > `allow`, regardless of which
