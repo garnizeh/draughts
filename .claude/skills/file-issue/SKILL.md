@@ -115,6 +115,13 @@ costs the invariant.
 GitHub milestone, every issue row becomes a GitHub issue, through
 `4-implementation.yml`.
 
+**`scripts/seed-github.py` already does the bulk of this**, and doing it by hand
+instead is how the two shapes drift apart. It parses the roadmap rather than
+carrying its own copy of the plan, matches existing issues on the `Mn-k` prefix
+so it is safe to re-run after the roadmap gains a row, and takes `--dry-run`.
+Reach for it first; write an issue by hand for a row it cannot express, and for
+everything that is not a roadmap row at all.
+
 - **The ID is permanent and never reused.** `M3-7` means one thing forever, in
   the roadmap and in every commit that cites it. Put it in the Roadmap ID field
   and in the title.

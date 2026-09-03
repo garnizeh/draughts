@@ -1,7 +1,7 @@
 ---
 description: Answer a question from the authoritative architecture document
 argument-hint: "<question — e.g. how does eviction work, why two model profiles>"
-allowed-tools: Read, Grep, Glob
+allowed-tools: Skill, Read, Grep, Glob
 ---
 
 Answer from `docs/architecture/` (v1.4, authoritative), not from the code and

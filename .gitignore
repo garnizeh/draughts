@@ -13,6 +13,17 @@
 # Local operator config. `draughts.example.toml` is the committed one.
 /draughts.toml
 
+# Release tarballs — built by `just package`, published by release.yml, never
+# committed. The tag is the artefact of record; these are reproducible from it.
+/dist/
+
+# Python bytecode from scripts/
+__pycache__/
+
+# Coverage output — `just coverage`. Reported, never gated, never committed.
+/lcov.info
+/coverage-summary.txt
+
 # Benchmark and profiling output
 /perf.data*
 /flamegraph.svg

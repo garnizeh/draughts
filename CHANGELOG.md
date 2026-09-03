@@ -6,66 +6,68 @@ Notable changes to the implementation. The architecture has its own history in
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**Newest first, and five releases deep.** This file holds `[Unreleased]` and the
+five most recent releases; everything older is archived under
+[docs/changelog/](docs/changelog/README.md), one file per release. `just
+changelog-rotate` moves them, `just changelog-check` is in the merge gate, and
+neither is optional — a changelog nobody can read is a changelog nobody reads.
+
 ## [Unreleased]
 
 ### Added
 
-- Cargo workspace, pinned toolchain, and the module layout from
-  [§4](docs/architecture/04-separation-of-concerns.md) and
-  [§5](docs/architecture/05-runtime-components.md).
-- `justfile` as the single entry point for local and CI automation; CI invokes
-  the same recipes, so `just ci` and a green pipeline mean the same thing.
-- Configuration types mirroring [§23](docs/architecture/23-configuration-example.md),
-  with the startup validation from §23.1: the host-memory ceiling, the VRAM
-  budget, and deadline feasibility for **both** device profiles.
-- `draughts --check-config`, which runs every §23.1 check without opening the
-  database, allocating the table, or binding a port.
-- Device selection ([§7.4.1](docs/architecture/07-face-llm-layer.md#741-device-selection)),
-  with `candle_core::Device` constructed in exactly one function and a CI grep
-  that keeps it that way.
-- Circuit breaker ([§7.8](docs/architecture/07-face-llm-layer.md#78-circuit-breaker--new-in-11))
-  against an injected clock, with the failure classification from §7.8.3.
-- Canned commentary covering every `(CommentaryEvent, Tone)` pair, and output
-  sanitization ([§7.7](docs/architecture/07-face-llm-layer.md)).
-- Zobrist key table generated from a fixed seed, pinned by a fingerprint test so
-  that a silent regeneration fails the build rather than invalidating every
-  persisted `board_hash`.
-- The MVP schema ([§12](docs/architecture/12-database-schema.md)) as migration
-  1, applied at startup inside one transaction.
-- The `/api/v1` route surface from [§9](docs/architecture/09-api-contract.md),
-  with `/health` answering fully.
-- The error model from §9.1, including the deliberate absence of a
-  `face_unavailable` error status.
+- Cargo workspace, pinned toolchain, and the module layout from [§4](docs/architecture/04-separation-of-concerns.md) and [§5](docs/architecture/05-runtime-components.md).
+- `justfile` as the single entry point for local and CI automation; CI invokes the same recipes, so `just ci` and a green pipeline mean the same thing.
+- Configuration types mirroring [§23](docs/architecture/23-configuration-example.md), with the startup validation from §23.1: the host-memory ceiling, the VRAM budget, and deadline feasibility for **both** device profiles.
+- `draughts --check-config`, which runs every §23.1 check without opening the database, allocating the table, or binding a port.
+- Device selection ([§7.4.1](docs/architecture/07-face-llm-layer.md#741-device-selection)), with `candle_core::Device` constructed in exactly one function and a CI grep that keeps it that way.
+- Circuit breaker ([§7.8](docs/architecture/07-face-llm-layer.md#78-circuit-breaker--new-in-11)) against an injected clock, with the failure classification from §7.8.3.
+- Canned commentary covering every `(CommentaryEvent, Tone)` pair, and output sanitization ([§7.7](docs/architecture/07-face-llm-layer.md)).
+- Zobrist key table generated from a fixed seed, pinned by a fingerprint test so that a silent regeneration fails the build rather than invalidating every persisted `board_hash`.
+- The MVP schema ([§12](docs/architecture/12-database-schema.md)) as migration 1, applied at startup inside one transaction.
+- The `/api/v1` route surface from [§9](docs/architecture/09-api-contract.md), with `/health` answering fully.
+- The error model from §9.1, including the deliberate absence of a `face_unavailable` error status.
+- Automated releases (`.github/workflows/release.yml`). The version in `Cargo.toml` is the source of truth and `CHANGELOG.md` is the gate: a push to `main` cuts an annotated tag only when the version has no tag *and* its CHANGELOG section is closed — a dated `## [x.y.z] - YYYY-MM-DD` heading, not `[Unreleased]`. The gate is then re-run at that tag before anything is built, and the release notes are the CHANGELOG section itself rather than a generated commit list. No bot rewrites the CHANGELOG.
+- Two release artefacts, Linux x86-64 only, each with a `.sha256` verified in CI before publishing: a portable build with no CUDA dependency, built *and run* in a container with neither driver nor toolkit, and a `cuda` build that is linked but never run. Both halves of [§22.1](docs/architecture/22-deployment-model.md) now ship rather than only compiling.
+- `just version`, `just release-notes`, `just release-check`, `just package` and `just coverage` — the release workflow invokes recipes, like every other job, so a green machine and a green pipeline still mean the same thing.
+- `scripts/check-no-cuda-linkage.sh`: one definition of the NEEDED assertion, shared by `ci.yml`'s `portable-build` job and `just package portable`, so the binary CI checks and the binary a release ships are checked the same way.
+- Coverage as a CI job and a `just coverage` recipe. Reported, never gated: a percentage threshold against a tree whose unimplemented seams are `todo!()` would measure the seams and be met by deleting them.
+- `actionlint` over `.github/workflows/`, and `SECURITY.md`, `.github/CODEOWNERS` and a pull request template carrying the five rules as a checklist.
+- OpenSSF Scorecard, weekly and on `main`, publishing its result. It grades the claims this repository makes about itself — pinned actions, scoped tokens, branch protection, a security policy — and never gates a merge.
+- Pull requests are assigned to their author on open.
+- `just pre-pr`: every job `ci.yml` runs, run locally and ordered by what a failure would mean — first the recipes needing only the pinned toolchain (`just ci`, then the portable build with its linkage assertion), then those needing a tool `just setup` installs (`just audit`, coverage, actionlint), then those needing a CUDA toolkit. `just ci` is one of those six, and running it alone was the gap this closes. It is honest about the two things it cannot fully reproduce: `portable-check` builds outside a driverless container, and the CUDA recipes need a toolkit on the host.
+- `just doc-links` in the merge gate (`scripts/check-doc-links.py`): every relative link and every `#anchor` across the documentation resolves, or the gate is red. This tree cites itself several hundred times across sixty-odd files, and renaming one heading says nothing about the twenty references it just broke. It is the first rule to graduate from `LESSONS.md` into a script.
+- `just source-citations` in the merge gate (`scripts/check-source-citations.py`): both lists of `todo!()` seams — `docs/ROADMAP.md` and the `implement-seam` skill — name every seam `src/` actually has, and no document cites a source line number. It was proved against the state it exists for before it landed: twenty-four problems on the tree as it stood two commits ago, none on the tree that replaced it. This is the half of "find every other document that says the same thing" a script can decide, and it is decidable here only because a seam has a source of truth in `src/` that the compiler keeps honest.
+- `just test-docs` in the merge gate. `cargo test --all-targets` does not run doc examples: the flag means every *target*, and a doctest is not one. An example in a doc comment was therefore compiled by `just docs` and executed by nothing, which is how a doc comment starts lying while the gate stays green. There are none today, so the recipe is a floor for the ones there will be.
+- A `review-response` skill and a `/respond` command owning the review loop end to end, and `.claude/skills/review-response/LESSONS.md` — a conditional checklist (*if you changed X, check Y*) where every line was earned from a finding that actually happened on this repository and cites the pull requests it came from. Each rule carries an **origin** and two counters, all of them lists of dated evidence rather than numbers, so the count and the proof cannot drift apart. `origin` is the finding that created the rule — nothing could have prevented it. **missed** is the times the rule existed, was not applied, and a reviewer caught the mistake anyway; **saved** is the times it was read before a PR and caught it first. `saved / (saved + missed)` is the rule's hit rate. Separating the origin from a miss is the point of the shape: a miss is the only fact that criticises this file's own writing rather than the world, and lumping the two together hides it. Promotion keys on `missed`, and the first miss buys a rewrite of the sentence rather than a promotion — a rule that failed once may simply have been worded badly. At two, anything a script can decide becomes a check in `just ci`; at five, a rule that only judgment can decide earns a line in `CLAUDE.md`. Rules with a miss are hoisted into a *Failed before* block at the top of the file and demoted out of it after a release with no new miss, because attention is as scarce a budget as context: if everything is at the top, nothing is. Every rule carries a `scope:` selector of paths and change kinds; nothing reads it, and it is written because stating when a rule applies is a test of whether the rule is narrow enough to fire usefully — a broad scope and a false-positive problem turn out to be one fact seen from two sides. A rule prone to false positives carries a `⚠ Looks like a violation but is not` note inline, because a rule that sends the reader chasing ghosts three times gets ignored the fourth. Rules that leave move to `RETIRED.md`, which keeps *graduated* apart from *dropped* — they mean opposite things about a rule — and also records mechanizations that were attempted and rejected, so nobody spends the afternoon finding that out twice. `saved` is self-reported and is only recorded when the defect it caught can be named. Either way the line leaves the file, so it is bounded by graduation rather than by pruning. `/gate` reads it against the diff before a PR; `/respond` writes to it after a review. The CodeRabbit procedure, which had been restated in three places, now lives in one.
+- CHANGELOG rotation. This file keeps `[Unreleased]` and the five most recent releases, newest first; `just changelog-rotate` archives the rest under `docs/changelog/`, one file per release, with an index. `just changelog-check` joins the merge gate and asserts both the limit and the ordering — a section added below an older one would otherwise archive the newest entry and publish the oldest one's notes.
 
 ### Fixed
 
-- `send_durable`'s payload and acknowledgement now travel as one channel
-  message (`WriteOp::Durable`) instead of two, closing a window where a
-  saturated channel could accept the payload and then fail to enqueue the
-  barrier that acks it — reporting `Degraded` for a write already queued for
-  commit and inviting a retry that would double-submit it.
-- `/health`'s `transposition_table.mode` now reads `engine.play.transposition_mode`,
-  matching the section the adjacent `evaluator` field already reads, instead of
-  `engine.lab.transposition_mode`.
-- `FaceStatus::unloaded` reports `vram_budget_mb` from `limits.max_vram_mb` on
-  the CUDA path instead of always `None`.
-- `Board::from_bytes` now takes `format_version` as an explicit parameter, like
-  `GameRecord::decode_moves`, so a caller cannot decode a persisted board
-  without having looked at it (§13.7).
-- Commentary sanitization now strips U+061C (Arabic Letter Mark) alongside the
-  other bidirectional formatting controls (§7.7).
-- CI: `actions/checkout` no longer persists Git credentials past the job; the
-  `gate`/`cuda-compile`/`portable-build` jobs pin the toolchain to the exact
-  version `rust-toolchain.toml` declares instead of `dtolnay/rust-toolchain`'s
-  `stable`, which does not read that file; `check-cuda` now runs Clippy against
-  the `cuda` feature, not just `cargo check`, so that path is actually linted;
-  the nightly `load` job is disabled until `tests/load.rs`'s `todo!()` bodies
-  are implemented, instead of failing every scheduled run.
+- `scripts/rotate-changelog.py` validates a release heading against the semantic-version grammar before the version string becomes a filename — `## [../../CLAUDE]` is a legal Markdown heading — and refuses a symlink whatever it points at, since `exists()` follows one and a dangling link reads as absent. Rotation is also resumable: an archive page byte-identical to what the run would write is that run interrupted, not a collision, so a retry finishes instead of refusing. The first version of the collision guard made a half-finished rotation unrecoverable.
+- Documentation swept before implementation begins. `README.md` said "three rules" where seventeen other places said five, and omitted the two that are enforced by review rather than by CI. `docs/ROADMAP.md`'s definition of done — which ninety-four filed issues link to — still said `just ci` rather than `just pre-pr`, and its table of `todo!()` seams cited line numbers, five of eleven of which were already wrong before a seam had been touched; the seams are now located by their `todo!()` message, which is stable and greppable. Two roadmap rows (M6-12, and most of M7-11 and M7-10) describe work the scaffold has already done, and now say so.
+- The gate is now described the same way everywhere it is described. `CLAUDE.md`, `CONTRIBUTING.md` and the `merge-gate` skill each claimed `just pre-pr` runs its seven prerequisites "in CI's order", which the recipe has never done and whose own comment says the opposite. The same skill filed `coverage`, `audit` and `check-cuda` under "outside the gate … they run nightly" when all three run on every pull request, called `workflows-check` a CI job with no recipe, ended a change at `just ci`, and offered no triage row for four of `pre-pr`'s seven prerequisites. The pull request template asked for `just ci` output, and `/release` ran `just ci` where the `releasing` skill it loads runs `just pre-pr`. Where the `justfile` owns an order, the prose now says so instead of restating it.
+- `.claude/hooks/invariant-guard.sh` says so when it cannot run. Without `jq`, or given a payload it could not parse, it exited quietly and reported nothing — a guard that is not running and does not say it is not running, which is the precise failure the gate exists to prevent everywhere else. Its header now also states what it cannot cover: `PostToolUse` fires for the file-editing tools only, so an edit made through the shell never reaches it, and `just ci` remains the authority on all three invariants.
+- Two recipes were described in `just --list` by a sentence fragment — the tail of a prose comment rather than a summary. `lint` and `release-notes` now carry a one-line description after a blank line, which is what `just` reads.
+- The seam list in the `implement-seam` skill now locates each seam by its `todo!()` message, the way `docs/ROADMAP.md` already did. It was the same eleven line numbers, five of them wrong, and the fix had been applied to the roadmap alone. Both lists were also missing a twelfth seam: `candle_adapter`'s commentary dispatch (§7.4), which must answer under a hard token and wall-clock budget and never retry internally, because the circuit breaker owns that decision (§7.8).
+- `/arch`, `/gate`, `/release` and `/respond` each told the reader to load a skill while their `allowed-tools` withheld the tool that loads one. All four now list `Skill`.
+- `.github/CODEOWNERS` covers `.claude/` — what an agent working here is told the rules are — and the three scripts it had missed: `check-no-cuda-linkage.sh`, `check-doc-links.py`, and the two that write on the repository's behalf, `rotate-changelog.py` into an archive the tree calls permanent and `seed-github.py` into GitHub itself.
+- `ci.yml`'s `supply-chain` job says why it runs `cargo-deny` through its action rather than through `just audit`, as the `workflows` job already did for actionlint. It is the one job where the recipe and CI can differ, and the difference is a cargo-deny version against a shared `deny.toml`, not a policy.
+- The `file-issue` skill points at `scripts/seed-github.py`, which parses `docs/ROADMAP.md` and creates the milestones and issues the skill was describing how to write by hand. The script was also missing from the harness README's map of `scripts/`.
+- The `rust:1.98.0-slim-bookworm` container in `ci.yml` and `release.yml` is pinned by digest. A Docker tag is exactly as mutable as an action tag, every `uses:` here already names a commit, and this is the container that builds the binary a release ships.
+- `.claude/settings.json` no longer pre-approves `just` as a whole. `Bash(just:*)` granted every recipe in the `justfile`, including ones nobody had written yet, and the single-recipe `deny` beneath it matched one exact string — so `just clean clean-data`, two real recipes in one invocation, ran the destructive one without a prompt. The rule for a command runner is the rule already applied to `gh`: allowlist the operations, never the runner. `just setup-frontend` and `cargo update` move from `ask` to `allow`, where they can take effect at all — a matching `ask` in the committed file overrides an `allow` in the git-ignored local one, so those two prompted whatever a developer had put in their own overrides. `just clean-data` moves from `deny` to `ask`; it removes a local database and nothing else, and with no blanket allow left it would prompt regardless, so the rule now reads as a marker on the one destructive recipe rather than as a gate. The cost is stated in `.claude/README.md`: the gate itself prompts.
+- Read-only `gh` commands are allowed in `.claude/settings.json`, so the documented `/respond` and `/file-issue` workflows do not prompt on every call. Anything that writes still asks.
+
+- `send_durable`'s payload and acknowledgement now travel as one channel message (`WriteOp::Durable`) instead of two, closing a window where a saturated channel could accept the payload and then fail to enqueue the barrier that acks it — reporting `Degraded` for a write already queued for commit and inviting a retry that would double-submit it.
+- `/health`'s `transposition_table.mode` now reads `engine.play.transposition_mode`, matching the section the adjacent `evaluator` field already reads, instead of `engine.lab.transposition_mode`.
+- `FaceStatus::unloaded` reports `vram_budget_mb` from `limits.max_vram_mb` on the CUDA path instead of always `None`.
+- `Board::from_bytes` now takes `format_version` as an explicit parameter, like `GameRecord::decode_moves`, so a caller cannot decode a persisted board without having looked at it (§13.7).
+- Commentary sanitization now strips U+061C (Arabic Letter Mark) alongside the other bidirectional formatting controls (§7.7).
+- CI: `actions/checkout` no longer persists Git credentials past the job; the `gate`/`cuda-compile`/`portable-build` jobs pin the toolchain to the exact version `rust-toolchain.toml` declares instead of `dtolnay/rust-toolchain`'s `stable`, which does not read that file; `check-cuda` now runs Clippy against the `cuda` feature, not just `cargo check`, so that path is actually linted; the nightly `load` job is disabled until `tests/load.rs`'s `todo!()` bodies are implemented, instead of failing every scheduled run.
+- CI: every `uses:` across the workflows now names a commit rather than a tag, with the tag it belonged to in a trailing comment — a tag is a pointer its author can repoint at any time, and Dependabot maintains the pin and the comment together. `nightly.yml` gained a concurrency group, so a scheduled run and a manual dispatch of the same suite cannot produce two baselines for one night.
 
 ### Not yet implemented
 
-Move generation, tree search, the writer actor loop, the lab worker pool, and
-GGUF loading. Each is a `todo!()` at the seam the architecture defines for it,
-with the owning section named.
+Move generation, tree search, the writer actor loop, the lab worker pool, GGUF loading and commentary dispatch. Twelve seams in all, each a `todo!()` at the place the architecture defines for it and carrying the owning section in its message; `grep -rn 'todo!' src` is the list.
 
 [Unreleased]: https://github.com/garnizeh/draughts/commits/main

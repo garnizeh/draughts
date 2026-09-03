@@ -21,7 +21,17 @@ updates:
       - dependency-name: rusqlite
         update-types: ['version-update:semver-major']
 
+  # Every `uses:` in this repository is pinned to a commit with the tag it
+  # belonged to in a trailing comment. Dependabot reads that comment, so the pin
+  # is maintained here rather than by hand — which is the only reason pinning to
+  # a commit is affordable at all.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for a month of action bumps. They are reviewed by reading the
+      # diff of what each pin now points at, and that reads better in one place.
+      actions:
+        patterns: ['*']

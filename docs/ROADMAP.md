@@ -83,21 +83,30 @@ breaker, canned commentary, sanitization, the Zobrist key table and its
 fingerprint, migration 1, the `/api/v1` route surface, `/health`, and the §9.1
 error model.
 
+Also built, and not on this roadmap because it predates nothing and blocks
+everything: the release pipeline (`release.yml`, two Linux tarballs, tags cut
+from a version bump whose CHANGELOG section is closed), `just pre-pr`, and the
+supply-chain and governance work in [CHANGELOG.md](../CHANGELOG.md). Two rows
+below are already satisfied by it — see the note under M6 and M7.
+
 Unimplemented, each a `todo!()` at its named seam:
 
-| Seam | File | Owning § |
-|---|---|---|
-| Move generation | [moves.rs:100](../src/rules/moves.rs#L100) | §5.3 |
-| Move application | [moves.rs:111](../src/rules/moves.rs#L111) | §5.3 |
-| Tree search | [mcts.rs:142](../src/engine/mcts.rs#L142) | §6.4 |
-| Random rollout | [evaluator.rs:164](../src/engine/evaluator.rs#L164) | §6.3 |
-| TT store / capacity | [transposition.rs:288](../src/engine/transposition.rs#L288) | §6.7.5 |
-| Writer actor loop | [writer.rs:156](../src/db/writer.rs#L156) | §11.2.2 |
-| Lab worker pool | [runner.rs:123](../src/lab/runner.rs#L123) | §5.5, §15.3 |
-| Batch recovery | [runner.rs:132](../src/lab/runner.rs#L132) | §11.4 |
-| GGUF + tokenizer load | [candle_adapter.rs:87](../src/face/candle_adapter.rs#L87) | §7.4 |
-| Host residency accounting | [candle_adapter.rs:121](../src/face/candle_adapter.rs#L121) | §16.4 |
-| CUDA memory accounting | [candle_adapter.rs:129](../src/face/candle_adapter.rs#L129) | §16.6 |
+Located by their `todo!()` message rather than by line number, because a line number in a document is wrong by the next commit — five of the eleven citations that used to be here were pointing at the wrong line before a single seam had been touched, and the twelfth seam was missing from the list altogether. `grep -rn 'todo!(' src/` is the authoritative list; it returns thirteen hits, the last of which is a doc comment in `transposition.rs` describing the seams rather than one of them.
+
+| Seam | File | `todo!()` says | Owning § |
+|---|---|---|---|
+| Move generation | [moves.rs](../src/rules/moves.rs) | `move generation` | §5.3 |
+| Move application | [moves.rs](../src/rules/moves.rs) | `move application` | §5.3 |
+| Tree search | [mcts.rs](../src/engine/mcts.rs) | `tree search` | §6.4 |
+| Random rollout | [evaluator.rs](../src/engine/evaluator.rs) | `random rollout playout` | §6.3 |
+| TT store / capacity | [transposition.rs](../src/engine/transposition.rs) | `store, merge and capacity enforcement` | §6.7.5 |
+| Writer actor loop | [writer.rs](../src/db/writer.rs) | `writer actor loop` | §11.2.2 |
+| Lab worker pool | [runner.rs](../src/lab/runner.rs) | `worker pool and batch lifecycle` | §5.5, §15.3 |
+| Batch recovery | [runner.rs](../src/lab/runner.rs) | `interrupted-batch recovery` | §11.4 |
+| GGUF + tokenizer load | [candle_adapter.rs](../src/face/candle_adapter.rs) | `GGUF load and tokenizer initialisation` | §7.4 |
+| Host residency accounting | [candle_adapter.rs](../src/face/candle_adapter.rs) | `host-side residency accounting` | §16.4 |
+| CUDA memory accounting | [candle_adapter.rs](../src/face/candle_adapter.rs) | `CUDA memory accounting` | §16.6 |
+| Commentary dispatch | [candle_adapter.rs](../src/face/candle_adapter.rs) | `dispatch to the inference thread` | §7.4, §7.8 |
 
 The `/api/v1` handlers return `NotFound` or `Internal` placeholders, and
 [tests/load.rs](../tests/load.rs) is seven `todo!()` bodies.
@@ -134,7 +143,9 @@ graph LR
 
 ### Definition of done — applies to every issue
 
-1. `just ci` green, output reported as run.
+1. `just pre-pr` green, output reported as run — every job CI runs, not only
+   `just ci`, which is one of six. Where a recipe cannot run on the host (the
+   CUDA path needs a toolkit), name it rather than rounding it up to green.
 2. Tests named as the property they assert (§ CLAUDE.md), asserting what
    [§20](architecture/20-testing-strategy.md) requires for the touched area.
 3. Comments cite the § that decided any non-obvious constant.
@@ -309,6 +320,12 @@ component can be broken by.
 | M6-13 | Device-parity and VRAM-budget suite, target host only, not a merge gate | §20.10 | `area:face` `type:test` `prio:mvp` |
 | M6-14 | Commentary latency baselines, CPU and CUDA | §20.9, App. B | `area:face` `type:perf` |
 
+**Already satisfied by the scaffold.** M6-12 is done: `ci.yml`'s `cuda-compile`
+job runs `just check-cuda` and `just build-cuda` on every PR, compile-only, with
+no device. Close it, or rescope it to whatever the milestone still needs — an
+issue that describes finished work is worse than no issue, because someone will
+pick it up and spend an afternoon finding that out.
+
 **Exit:** §25 criteria 11, 12, 20, 21, 23, 24, 25, 27.
 
 ---
@@ -330,10 +347,22 @@ component can be broken by.
 | M7-8 | Structured logging, metrics and the §21 counters | §21 | `type:infra` |
 | M7-9 | Startup and shutdown sequences match §22.3 / §22.4 | §22 | `type:infra` |
 | M7-10 | Portable-build container test: no driver, no toolkit, plays a full game | §20.10, §22.1 | `area:ci` `gate:cpu-only` `prio:mvp-blocker` |
-| M7-11 | Nightly workflow: `test-tt-off`, `test-load`, `bench`, `check-cuda` | §20 | `area:ci` `type:infra` |
+| M7-11 | Nightly workflow: `test-tt-off`, `test-load`, `bench`, `check-cuda` | §20 | `area:ci` `type:infra` ¹ |
 | M7-12 | Appendix B filled with measured numbers, replacing the estimates | App. B | `type:docs` `type:perf` |
 | M7-13 | Operational playbook and README pass for a first-time operator | §22.5 | `type:docs` |
 | M7-14 | **Acceptance walkthrough: all 27 §25 criteria demonstrated and recorded** | §25 | `prio:mvp-blocker` `type:docs` |
+
+¹ **Mostly satisfied by the scaffold.** `nightly.yml` already runs `test-tt-off`,
+`bench` and `check-cuda`. Only the `test-load` job is missing, and it is
+commented out rather than absent — deliberately, because every body in
+`tests/load.rs` is `todo!()` and a scheduled run would fail every night rather
+than report a load-test result. Rescope M7-11 to "uncomment the `load` job",
+which is a one-line change gated on M7-1, or fold it into M7-1.
+
+Likewise M7-10 is half done: `ci.yml`'s `portable-build` job already builds the
+default binary in a container with no driver and no toolkit, runs it, and
+asserts its linkage. What it cannot do yet is *play a full game*, which is the
+half that waits on M1 and M4.
 
 **Exit:** MVP.
 

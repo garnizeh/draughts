@@ -1,29 +1,38 @@
 ---
 name: merge-gate
-description: Run and interpret the draughts merge gate — just ci, fmt-check, lint, test, device-check, format-version-check, docs — plus the nightly suites (test-tt-off, test-load, bench, check-cuda). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
+description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (formatting, clippy, the suite, doc examples, and the static checks for device construction, format_version, the CHANGELOG, the documentation links and the seam lists) — plus the nightly suites (test-tt-off, test-load, bench). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
 ---
 
 # The gate
 
 ```bash
-just ci
+just pre-pr     # every CI job, locally — this is the pre-PR check
+just ci         # one of those six jobs
 ```
 
-is `fmt-check`, `lint`, `test`, `device-check`, `format-version-check`, `docs` —
-in that order, and it is exactly what `ci.yml`'s `gate` job invokes. There is
-one definition of "green" and it is the justfile. Never hand-roll a `cargo`
-command in place of a recipe: a passing hand-rolled command that differs from
-the recipe is a false green.
+`just ci` is the prerequisite list of the `ci` recipe, in that order, and it is exactly what `ci.yml`'s `gate` job invokes — `just --list` names the steps, and the triage table below has a row per failure. There is one definition of "green" and it is the justfile. Never hand-roll a `cargo` command in place of a recipe: a passing hand-rolled command that differs from the recipe is a false green.
 
-**`just ci` is one of four required jobs, not the whole workflow.** `ci.yml`
-also runs `portable-build`, `cuda-compile` (`just check-cuda` + `just
-build-cuda`), and `supply-chain` (`just audit`) — each required on every PR,
-none reproduced by `just ci` itself. A PR isn't green until all four are; see
-"Before opening a PR" below for the two of those `just ci` doesn't cover.
+**`just ci` is one of six jobs, not the whole workflow.** `ci.yml` also runs
+`portable-build`, `cuda-compile` (`just check-cuda` + `just build-cuda`),
+`supply-chain` (`just audit`), `workflows` (actionlint over
+`.github/workflows/`), and `coverage` (`just coverage`) — none reproduced by
+`just ci` itself.
 
-**A change is not done until `just ci` is green, and you have seen it.** Report
-the real output. If it fails and you are out of scope to fix it, say which
-recipe failed and why.
+**`just pre-pr` runs all six, here.** Use it before opening a PR, and use it instead of `just ci` when the question is "is this ready". Its order is deliberately not `ci.yml`'s: `just` stops the prerequisite chain at the first failure, so the recipe is sorted by what a failure would *mean* — the `justfile` owns that order and says why, and it is not restated here. Everything `pre-pr` finds is something a pushed branch would have found a round trip later, on someone else's runner. Two honest caveats:
+
+- `portable-check` builds outside a driverless container, so it is weaker than
+  `ci.yml`'s `portable-build`. CI remains the authority on §22.1.
+- `check-cuda` and `build-cuda` need a CUDA toolkit on this host. Without one
+  they fail on the toolkit, not on the tree. Say so and let CI answer — do not
+  report `pre-pr` as green when part of it did not run. An unrun check reported
+  as green is worse than a red one.
+
+`coverage` reports and never gates: there is no percentage threshold, because a
+threshold against a tree whose unimplemented seams are `todo!()` would measure
+the seams and be gamed by deleting them. The lcov file is an artifact and the
+summary is in the run's step summary.
+
+**A change is not done until `just pre-pr` is green, and you have seen it.** Report the real output. If it fails and you are out of scope to fix it, say which recipe failed and why.
 
 ## Triage
 
@@ -32,9 +41,19 @@ recipe failed and why.
 | `fmt-check` | Tree is not formatted | `just fmt` |
 | `lint` | Clippy, warnings denied, all targets, all features | Fix the lint. `#[allow]` needs a comment saying why, in the house style |
 | `test` | The suite | Read the test name — it names the property that broke |
+| `test-docs` | A doc example failed. `just test` cannot catch this: `--all-targets` means every target, and a doctest is not one | Fix the example or the code. Never delete the example to make it pass — it is the only executable part of a doc comment |
 | `device-check` | `candle_core::Device` constructed outside `src/face/device.rs` (§19.6.5) | Take the device as a parameter. See the `face-layer` skill |
 | `format-version-check` | An insert does not name `format_version`, or `src/db` decodes without referencing `CURRENT_FORMAT_VERSION` (§20.8) | See the `persisted-format` skill |
+| `doc-links` | A relative link points at a file that is not there, or a `#anchor` at a heading that is not there | Fix the link. If a heading was renamed, every reference to it moved — the check names all of them at once |
+| `source-citations` | A `todo!()` seam that neither seam list names, or a document citing a source line number | Add the seam to `docs/ROADMAP.md` and the `implement-seam` skill, quoting the opening words of its `todo!()` message. Replace a line number with that message: it carries its own § and the compiler will not let it drift from the code |
+| `changelog-check` | `CHANGELOG.md` is out of order, or holds more than five released sections | `just changelog-rotate`. If it is an ordering complaint, the new section went in below an older one — newest first |
+| `changelog-rotate-symlinks-check` | `rotate-changelog.py` wrote through a symlinked `docs/changelog/` or a symlinked `docs/changelog/README.md` on one of its two write paths | Fix the write path that failed — both the ordinary rotation and the `over <= 0` recovery branch must call `archive_containment_problem()` and let `write_index()` refuse a symlinked target before writing |
 | `docs` | Broken intra-doc link, `RUSTDOCFLAGS=-D warnings` | Fix the link; do not drop the doc comment |
+| `portable-check` | The default binary failed to build, to run, or to prove its linkage (§22.1, §19.6.5) | Read which of the three failed. A linkage failure means something pulled CUDA into the default build — see the `face-layer` skill |
+| `audit` | `cargo-deny` found an advisory, a banned or duplicated crate, a licence outside the allowlist, or an unexpected source | Fix the dependency. `deny.toml` is the policy, and widening it is a decision rather than a fix |
+| `coverage` | `just coverage` failed to *run* — never a percentage | Usually the same failure `just test` would give; read it as a test failure |
+| `workflows-check` | actionlint found a real error in `.github/workflows/` — a bad expression, an undefined output, a shell mistake | Fix the workflow. CI runs the same binary through reviewdog with `filter_mode: nofilter`, so a finding may be in a file this PR did not touch and is still worth fixing |
+| `check-cuda`, `build-cuda` | Either the `cuda` feature stopped compiling, or this host has no CUDA toolkit | Two different things — read the error before blaming the tree. No toolkit here means naming the recipe and letting CI answer, never rounding to green |
 
 Two failures that look like flakes and are not:
 
@@ -45,18 +64,20 @@ Two failures that look like flakes and are not:
   table has become load-bearing for correctness. See the
   `transposition-safety` skill — this is rule 2, and it is a blocker.
 
-## Outside the gate, on purpose
+## Outside `just ci`, on purpose
 
-These are slow, large, or device-dependent. They run nightly. Do not add them to
-`just ci`; do run the relevant one when you have touched what it covers.
+Two different things get called "outside the gate", and conflating them is how a job quietly stops being run.
+
+**Inside `pre-pr`, outside `just ci`.** `portable-check`, `audit`, `coverage`, `workflows-check`, `check-cuda` and `build-cuda` each run on every pull request as their own `ci.yml` job. They are not in `just ci` because they need a container, a network, or a tool the `gate` job does not have — never because they are optional.
+
+**Outside the gate entirely, and nightly-only.** `nightly.yml` runs exactly two suites, and neither can block a merge:
 
 ```bash
 just test-tt-off     # §5.4 — the search suite with the table disabled
-just test-load       # §20.4 — millions of rows, a peak-RSS gate. Minutes to hours
 just bench           # §20.9 — criterion baselines, tracked as numbers not pass/fail
-just check-cuda      # §20.10 — the cuda feature compiles, no device needed
-just audit           # cargo-deny: advisories, bans, licences, sources
 ```
+
+`just test-load` (§20.4 — millions of rows and a peak-RSS gate, minutes to hours) runs in neither: its `nightly.yml` job is commented out until `tests/load.rs`'s `todo!()` bodies exist. Do not add any of these three to `just ci`; do run the relevant one when you have touched what it covers.
 
 `just bench` produces baselines, not assertions. A run slower than yesterday is a
 question, not a failure — and a new number belongs in
@@ -80,34 +101,36 @@ If `cudarc`'s supported toolkit range lags the installed driver, install a
 toolkit in range — that is the fix, not a driver downgrade (§22.1).
 
 CI also builds the default binary in a container with **no driver and no
-toolkit**, runs it, and greps `objdump -p` for a CUDA `NEEDED` entry. A missing
-CUDA library shows up at load time, not at link time, which is why the run
-matters as much as the build.
+toolkit**, runs it, and asserts its linkage with
+`scripts/check-no-cuda-linkage.sh` — one definition of that check, shared with
+`just package portable`, so the binary CI checks and the binary a release ships
+are checked the same way. A missing CUDA library shows up at load time, not at
+link time, which is why the run matters as much as the build.
 
 ## Before opening a PR
 
-1. `just ci` — the `gate` job.
-2. `just check-cuda`, `just build-cuda`, and `just audit` — unconditionally.
-   All three are required CI jobs (`ci.yml`'s `cuda-compile` and
-   `supply-chain`), not only when you touched a feature-gated file: a
-   shared-code change can break any of them.
-3. `just test-tt-off` if you touched search or the table
-4. `CHANGELOG.md` updated
-5. Every new constant carries its §
+1. **`just pre-pr`** — and read its output. This is the whole of the mechanical
+   check, and running `just ci` in its place is the mistake this recipe exists
+   to remove.
+2. `just test-tt-off` if you touched search or the table.
+3. `CHANGELOG.md` updated, under `[Unreleased]`, newest first.
+4. Every new constant carries its §.
+5. If a recipe could not run for want of a tool, `just setup` — and if it still
+   cannot (no CUDA toolkit here), name it rather than rounding it to green.
+6. `.claude/skills/review-response/LESSONS.md` read against this diff. It is a
+   short conditional checklist earned from real findings on this repository —
+   the things no script catches yet. Reading it costs a minute and is the
+   cheapest place left to catch anything on it.
+
+## Releasing is a different gate
+
+`release.yml` is not part of the merge gate and never runs on a pull request. It
+watches `main` for a version bump whose CHANGELOG section is closed, cuts the
+tag itself, and re-runs `just ci` at that tag before building anything. Do not
+run `git tag` — see the `releasing` skill, which owns that procedure.
 
 ## After CodeRabbit reviews
 
-Every finding gets a reply on its own thread — pointing at the fix, or stating
-why it stands as is — before the PR is done. See `CONTRIBUTING.md`. A PR is not
-finished with unanswered CodeRabbit threads any more than it is finished with a
-red `just ci`.
+Every finding gets a reply on its own thread — pointing at the fix, or stating why it stands as is — before the PR is done. A PR is not finished with unanswered threads any more than it is finished with a red `just pre-pr`.
 
-The per-line comments (`gh api --paginate repos/OWNER/REPO/pulls/PR/comments`)
-are not the whole review. Findings CodeRabbit cannot anchor to a changed line
-live in the **"⚠️ Outside diff range comments"** section of the review body
-itself — pull every review's full body (`gh api --paginate
-repos/OWNER/REPO/pulls/PR/reviews`, then each `.body`) and check that section,
-or these get silently skipped. `--paginate` on both calls, not just the
-second: a PR with enough reviews or comments to span more than one page
-silently drops the rest without it. See `CONTRIBUTING.md` for the reply
-convention for findings that have no comment id to reply on.
+The procedure belongs to the **`review-response`** skill, which owns it end to end: the endpoint that silently omits half a review, how to verify a finding against code that has moved since, and the phase most people skip — deciding whether a finding named a class worth a permanent check, and writing what the review taught into `.claude/skills/review-response/LESSONS.md` so the next one starts from it. Load that skill rather than working from memory; two of PR #99's four findings had a correct diagnosis attached to a fix that would have made things worse, and that is the ordinary case.

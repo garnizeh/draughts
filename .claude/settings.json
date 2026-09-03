@@ -6,7 +6,6 @@
   },
   "permissions": {
     "allow": [
-      "Bash(just:*)",
       "Bash(cargo tree:*)",
       "Bash(cargo metadata:*)",
       "Bash(rustc --version)",
@@ -15,14 +14,21 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "Bash(git branch:*)"
-    ],
-    "ask": [
+      "Bash(git branch:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
       "Bash(just setup-frontend)",
       "Bash(cargo update:*)"
     ],
+    "ask": [
+      "Bash(just clean-data)"
+    ],
     "deny": [
-      "Bash(just clean-data)",
       "Bash(cargo publish:*)",
       "Read(./data/**)",
       "Read(./models/**)",
