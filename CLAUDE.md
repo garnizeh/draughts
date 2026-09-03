@@ -59,7 +59,7 @@ thing by construction.
 ```bash
 just                    # list every recipe
 just pre-pr             # every CI job, locally. The pre-PR check
-just ci                 # one of six: fmt-check lint test device-check format-version-check changelog-check doc-links docs
+just ci                 # one of six; `just --list` names its steps
 just test               # the suite
 just test-one NAME      # one test or module, with output
 just check              # type-check, no binary

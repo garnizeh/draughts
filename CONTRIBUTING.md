@@ -38,9 +38,7 @@ run is not a check that passed.
 just ci
 ```
 
-is one of those six jobs — `fmt-check`, `lint`, `test`, `device-check`,
-`format-version-check`, `changelog-check`, `doc-links` and `docs`. Four of those
-are static checks that no compiler performs:
+is one of those six jobs. Its steps are the prerequisites of the `ci` recipe and `just --list` names them; five are static checks that no compiler performs:
 
 - `device-check` asserts `candle_core::Device` is constructed in exactly one
   function ([§19.6.5](docs/architecture/19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve)).
@@ -52,6 +50,10 @@ are static checks that no compiler performs:
   documentation resolves. This tree cites itself several hundred times across
   sixty-odd files, and renaming one heading tells you nothing about the twenty
   references you just broke.
+- `source-citations` asserts that both lists of `todo!()` seams name every seam
+  `src/` actually has, and that no document cites a source line number. Both
+  lists once read as complete while missing a seam, and both once cited line
+  numbers that were wrong before a seam had been touched.
 
 The heavy suites are deliberately outside the gate and run nightly:
 `just test-tt-off` and `just bench`. `just test-load` runs neither — its CI

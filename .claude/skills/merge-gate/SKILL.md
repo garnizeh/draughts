@@ -1,6 +1,6 @@
 ---
 name: merge-gate
-description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (fmt-check, lint, test, device-check, format-version-check, changelog-check, doc-links, docs) — plus the nightly suites (test-tt-off, test-load, bench). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
+description: Run and interpret the draughts gate — just pre-pr, which is every CI job locally, and just ci within it (formatting, clippy, the suite, doc examples, and the static checks for device construction, format_version, the CHANGELOG, the documentation links and the seam lists) — plus the nightly suites (test-tt-off, test-load, bench). Use when finishing a change, when CI is red, when a clippy or rustdoc warning needs fixing, or when deciding whether something belongs in the gate or in nightly.
 ---
 
 # The gate
@@ -10,12 +10,7 @@ just pre-pr     # every CI job, locally — this is the pre-PR check
 just ci         # one of those six jobs
 ```
 
-`just ci` is `fmt-check`, `lint`, `test`, `device-check`,
-`format-version-check`, `changelog-check`, `doc-links`, `docs` — in that order, and it is
-exactly what `ci.yml`'s `gate` job invokes. There is
-one definition of "green" and it is the justfile. Never hand-roll a `cargo`
-command in place of a recipe: a passing hand-rolled command that differs from
-the recipe is a false green.
+`just ci` is the prerequisite list of the `ci` recipe, in that order, and it is exactly what `ci.yml`'s `gate` job invokes — `just --list` names the steps, and the triage table below has a row per failure. There is one definition of "green" and it is the justfile. Never hand-roll a `cargo` command in place of a recipe: a passing hand-rolled command that differs from the recipe is a false green.
 
 **`just ci` is one of six jobs, not the whole workflow.** `ci.yml` also runs
 `portable-build`, `cuda-compile` (`just check-cuda` + `just build-cuda`),
@@ -46,9 +41,11 @@ summary is in the run's step summary.
 | `fmt-check` | Tree is not formatted | `just fmt` |
 | `lint` | Clippy, warnings denied, all targets, all features | Fix the lint. `#[allow]` needs a comment saying why, in the house style |
 | `test` | The suite | Read the test name — it names the property that broke |
+| `test-docs` | A doc example failed. `just test` cannot catch this: `--all-targets` means every target, and a doctest is not one | Fix the example or the code. Never delete the example to make it pass — it is the only executable part of a doc comment |
 | `device-check` | `candle_core::Device` constructed outside `src/face/device.rs` (§19.6.5) | Take the device as a parameter. See the `face-layer` skill |
 | `format-version-check` | An insert does not name `format_version`, or `src/db` decodes without referencing `CURRENT_FORMAT_VERSION` (§20.8) | See the `persisted-format` skill |
 | `doc-links` | A relative link points at a file that is not there, or a `#anchor` at a heading that is not there | Fix the link. If a heading was renamed, every reference to it moved — the check names all of them at once |
+| `source-citations` | A `todo!()` seam that neither seam list names, or a document citing a source line number | Add the seam to `docs/ROADMAP.md` and the `implement-seam` skill, quoting the opening words of its `todo!()` message. Replace a line number with that message: it carries its own § and the compiler will not let it drift from the code |
 | `changelog-check` | `CHANGELOG.md` is out of order, or holds more than five released sections | `just changelog-rotate`. If it is an ordering complaint, the new section went in below an older one — newest first |
 | `docs` | Broken intra-doc link, `RUSTDOCFLAGS=-D warnings` | Fix the link; do not drop the doc comment |
 | `portable-check` | The default binary failed to build, to run, or to prove its linkage (§22.1, §19.6.5) | Read which of the three failed. A linkage failure means something pulled CUDA into the default build — see the `face-layer` skill |

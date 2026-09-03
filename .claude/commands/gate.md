@@ -13,11 +13,7 @@ $ARGUMENTS
    machine is answered before anything that can fail for a reason unrelated to
    the change.
 
-   First `just ci` (fmt-check, lint, test, device-check, format-version-check,
-   changelog-check, doc-links, docs) and the portable build with its linkage
-   assertion — these need only the pinned toolchain, so a failure means the tree
-   is wrong. Then `just audit`, coverage and actionlint, which need a tool
-   `just setup` installs. Then the CUDA path, which needs a toolkit on this host.
+   First `just ci` and the portable build with its linkage assertion — these need only the pinned toolchain, so a failure means the tree is wrong. Then `just audit`, coverage and actionlint, which need a tool `just setup` installs. Then the CUDA path, which needs a toolkit on this host.
 
    The `justfile` is the authority on that order; if this paragraph and the
    recipe disagree, the recipe is right.

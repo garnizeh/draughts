@@ -27,6 +27,7 @@ scripts/
   check-format-version.sh       §20.8 — every insert names format_version
   check-no-cuda-linkage.sh      §22.1 — the default build needs no CUDA library
   check-doc-links.py            every relative link and § anchor resolves
+  check-source-citations.py     both seam lists are complete; no line numbers
   rotate-changelog.py           CHANGELOG.md stays newest-first and five deep
   seed-github.py                docs/ROADMAP.md → milestones, labels, issues
 docs/changelog/                 archived releases, one file per version

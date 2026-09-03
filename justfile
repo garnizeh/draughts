@@ -26,7 +26,7 @@ default:
 # ---------------------------------------------------------------------------
 
 # Everything the `gate` job checks, in the order it checks it. See `pre-pr`.
-ci: fmt-check lint test device-check format-version-check changelog-check doc-links docs
+ci: fmt-check lint test test-docs device-check format-version-check changelog-check doc-links source-citations docs
     @echo "ci: green"
 
 # Every job CI runs, not only the `gate` one. This is the pre-PR check.
@@ -98,6 +98,8 @@ fmt-check:
 # Clippy over every target, default features. `--all-features` would pull in
 # `cuda` and its `cudarc`/nvcc dependency, breaking the CPU-only gate — the
 # feature-gated path is linted separately by `check-cuda` (§20.10).
+
+# Clippy over every target, warnings denied. Default features only.
 lint:
     cargo clippy --locked --all-targets -- -D warnings
 
@@ -128,7 +130,12 @@ test-tt-off:
 test-load:
     cargo test --locked --release --test load -- --ignored --nocapture
 
-# Doc examples.
+# `cargo test --all-targets` does not run doc examples: the flag means every
+# *target*, and a doctest is not one. Without this recipe an example in a doc
+# comment is compiled by `just docs` and executed by nothing, which is how a
+# doc comment starts lying while the gate stays green.
+
+# Doc examples. Part of `just ci`.
 test-docs:
     cargo test --locked --doc
 
@@ -152,6 +159,17 @@ format-version-check:
 # Every relative link and § anchor in the documentation resolves.
 doc-links:
     ./scripts/check-doc-links.py
+
+# Two documents restate the seam list that `src/` owns — the roadmap and the
+# `implement-seam` skill — and a restatement drifts. Both were missing a seam
+# while reading as complete, and before that they cited line numbers, five of
+# eleven of which were wrong. This is the half of "find every other document
+# that says the same thing" that a script can decide, because the seam list has
+# a machine-readable source of truth and a prose recipe order does not.
+
+# Every seam is named by both lists, and no document cites a source line number.
+source-citations:
+    ./scripts/check-source-citations.py
 
 # Documentation builds without a broken intra-doc link.
 docs:
@@ -248,6 +266,8 @@ version:
 # turning "not ready yet" into a red job on main. The version is matched
 # literally and only the date is a pattern: a version is full of dots, and dots
 # in a regex match anything.
+
+# Print the CHANGELOG section for VERSION. Non-zero if it is not closed yet.
 release-notes VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
