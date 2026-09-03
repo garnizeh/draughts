@@ -116,7 +116,7 @@ If a finding requires code changes and the harvest requires documenting them, do
 gh api repos/garnizeh/draughts/pulls/PR/comments/COMMENT_ID/replies -f body='…'
 ```
 
-Reply on the thread itself, once the single push has landed and you have its commit SHA to cite. CodeRabbit resolves or re-argues from the reply, so one consolidated PR comment is not a substitute — it leaves every thread looking unanswered. A finding with no comment id (the outside-diff kind) has nowhere to reply inline: answer those together in one PR comment that names each file and line, or wait for a later pass to promote them.
+Reply on the thread itself, once the single push has landed and you have its commit SHA to cite. CodeRabbit resolves or re-argues from the reply, so one consolidated PR comment is not a substitute — it leaves every thread looking unanswered. A finding with no comment id (the outside-diff kind) has nowhere to reply inline: answer it now, in the same pass, in one PR comment that names each file and line — never leave it to wait for a later review that may or may not promote it to its own thread. If one does get promoted later, reply there too; the PR comment already on record is what keeps the finding answered in the meantime.
 
 Say what changed and where. A reply that says "fixed" and nothing else makes the reviewer re-read the diff to find out what you meant.
 
