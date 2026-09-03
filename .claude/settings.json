@@ -15,7 +15,16 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh api repos/garnizeh/draughts/pulls:*)",
+      "Bash(gh api repos/garnizeh/draughts/issues:*)"
     ],
     "ask": [
       "Bash(just setup-frontend)",

@@ -41,8 +41,8 @@ just ci
 ```
 
 is one of those six jobs — `fmt-check`, `lint`, `test`, `device-check`,
-`format-version-check`, `changelog-check` and `docs`. Three of those are static
-checks that no compiler performs:
+`format-version-check`, `changelog-check`, `doc-links` and `docs`. Four of those
+are static checks that no compiler performs:
 
 - `device-check` asserts `candle_core::Device` is constructed in exactly one
   function ([§19.6.5](docs/architecture/19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve)).
@@ -50,6 +50,10 @@ checks that no compiler performs:
   ([§20.8](docs/architecture/20-testing-strategy.md#208-format-version-tests)).
 - `changelog-check` asserts `CHANGELOG.md` is newest-first and holds no more
   than five released sections. See *Releasing* below.
+- `doc-links` asserts every relative link and every `#anchor` in the
+  documentation resolves. This tree cites itself several hundred times across
+  sixty-odd files, and renaming one heading tells you nothing about the twenty
+  references you just broke.
 
 The heavy suites are deliberately outside the gate and run nightly:
 `just test-tt-off` and `just bench`. `just test-load` runs neither — its CI
@@ -138,7 +142,7 @@ Every renderer that shows this text reflows it. Monitors are wide. And a fixed w
 
 Two exceptions, and they are the only two:
 
-- **Rust source** follows `rustfmt.toml`'s `max_width = 100`, enforced by `just fmt-check`. Comments in `.rs` files match it — a comment wider than the code it annotates reads badly in a split editor.
+- **Source files** follow their own language's convention — Rust `rustfmt.toml`'s `max_width = 100`, enforced by `just fmt-check`; Python PEP 8. Comments inside them match the code they sit in: source does not reflow, and a comment wider than the code it annotates reads badly in a split editor. This is why `scripts/*.py` prose is wrapped and `CHANGELOG.md` prose is not.
 - **A commit subject line** stays under about 72 characters, because `git log --oneline`, `git shortlog` and GitHub's UI all truncate it. The commit *body* has no such limit and should not be wrapped.
 
 The tree still contains a lot of prose wrapped at 80 from before this rule. Unwrap what you are editing anyway; do not mass-rewrap a file you are not otherwise touching.
@@ -256,7 +260,7 @@ things no script catches yet.
 
 The citation list is a counter, and the counter is a promotion ladder. At two
 occurrences, anything a script can decide becomes a check in `just ci` — a check
-costs a second of CI and nothing at all to remember. At five, a rule only
+costs a second of CI and nothing at all to remember. At five, a rule that only
 judgment can decide earns a line in `CLAUDE.md`, which is loaded into every
 session and is therefore the most expensive place in the tree to put a sentence.
 Either way the line leaves the file, so it stays bounded by graduation rather

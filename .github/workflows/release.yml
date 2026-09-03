@@ -200,7 +200,11 @@ jobs:
     needs: [resolve, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    container: rust:1.98.0-slim-bookworm
+    # Pinned by digest, for the same reason every `uses:` names a commit: a
+    # Docker tag is a pointer its publisher can repoint, and this is the
+    # container that builds the binary we ship. The digest is the multi-arch
+    # index, so platform resolution still works.
+    container: rust:1.98.0-slim-bookworm@sha256:1469a27c125cb5a3aebfa4f4e4665d935b02fb72cc093b2c974b3d740e43f157
     defaults:
       run:
         shell: bash

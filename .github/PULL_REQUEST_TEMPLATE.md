@@ -55,9 +55,10 @@ ticked is the review finding this section exists to prevent.
       into a comment.
 - [ ] Tests are named as the property they assert, not as the function they
       call.
-- [ ] Every CodeRabbit comment has a reply on its own thread — including the
-      "Outside diff range" findings inside the review body, which never appear
-      in the comments endpoint.
+- [ ] Every CodeRabbit comment has a reply on its own thread. The "Outside
+      diff range" findings inside the review body never appear in the comments
+      endpoint and have no thread to reply on — those are answered together in
+      one PR comment naming each file and line.
 
 ## Anything a reviewer should push back on
 

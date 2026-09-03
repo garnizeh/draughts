@@ -33,6 +33,13 @@ ARCHIVE = ROOT / "docs" / "changelog"
 REPO = "https://github.com/garnizeh/draughts"
 
 HEADING = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\d{4}-\d{2}-\d{2}))?\s*$")
+
+# The same grammar `just release-check` enforces. It is repeated here rather
+# than shared because the two run in different languages, and the cost of them
+# disagreeing is asymmetric: there a bad version fails a release, here it
+# becomes a *filename*. `## [../../CLAUDE]` is a legal heading and would put an
+# archive page in the repository root.
+SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
 REFERENCE = re.compile(r"^\[(?P<version>[^\]]+)\]:\s*\S+\s*$")
 
 
@@ -194,6 +201,14 @@ def main() -> int:
 
     released = [section for section in sections if section.released]
 
+    malformed = [s.version for s in released if not SEMVER.match(s.version)]
+    if malformed:
+        print(
+            "changelog: not a version: " + ", ".join(malformed),
+            file=sys.stderr,
+        )
+        return 1
+
     for problem in (ordering_problem(released), duplicate_problem(released)):
         if problem is not None:
             print(f"changelog: {problem}", file=sys.stderr)
@@ -242,11 +257,26 @@ def main() -> int:
     # An archived page is immutable: its GitHub release notes were rendered from
     # it at publish time. Check every target before writing any of them, so a
     # collision halfway through cannot leave the archive half-rotated.
-    collisions = [
-        section.version
-        for section in retiring
-        if (ARCHIVE / f"{section.version}.md").exists()
-    ]
+    #
+    # A page whose content is byte-identical to what this run would write is not
+    # a collision — it is this run, interrupted after writing that page and
+    # before rewriting CHANGELOG.md. Treating it as fatal is what made the first
+    # version of this guard unrecoverable: the retry saw its own output and
+    # refused, and the only way out was to delete a file by hand. Identical
+    # content is idempotent by definition, so resuming preserves immutability
+    # exactly — nothing already archived is ever *changed*.
+    #
+    # A symlink is refused whatever it points at, dangling included: `exists()`
+    # follows the link, so a dangling one reads as absent and would be written
+    # through to wherever it aims.
+    pages = {section.version: (ARCHIVE / f"{section.version}.md") for section in retiring}
+    collisions = []
+    for section in retiring:
+        page = pages[section.version]
+        if page.is_symlink():
+            collisions.append(f"{section.version} (symlink)")
+        elif page.exists() and page.read_text(encoding="utf-8") != archive_page(section):
+            collisions.append(section.version)
     if collisions:
         print(
             "changelog-rotate: refusing to overwrite archived release notes for "
@@ -256,8 +286,12 @@ def main() -> int:
         return 1
 
     for section in retiring:
-        page = ARCHIVE / f"{section.version}.md"
-        page.write_text(archive_page(section), encoding="utf-8")
+        page = pages[section.version]
+        rendered = archive_page(section)
+        if page.exists() and page.read_text(encoding="utf-8") == rendered:
+            print(f"already archived {section.version} -> {page.relative_to(ROOT)}")
+            continue
+        page.write_text(rendered, encoding="utf-8")
         print(f"archived {section.version} -> {page.relative_to(ROOT)}")
 
     retired = {section.version for section in retiring}

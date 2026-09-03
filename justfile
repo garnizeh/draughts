@@ -26,7 +26,7 @@ default:
 # ---------------------------------------------------------------------------
 
 # Everything the `gate` job checks, in the order it checks it. See `pre-pr`.
-ci: fmt-check lint test device-check format-version-check changelog-check docs
+ci: fmt-check lint test device-check format-version-check changelog-check doc-links docs
     @echo "ci: green"
 
 # Every job CI runs, not only the `gate` one. This is the pre-PR check.
@@ -134,6 +134,15 @@ device-check:
 # §20.8: every insert path sets format_version explicitly.
 format-version-check:
     ./scripts/check-format-version.sh
+
+# This tree cites itself constantly — several hundred cross-references across
+# sixty-odd files — and that density is worth nothing once the references stop
+# being true. Renaming one heading tells you nothing about the twenty links you
+# just broke.
+
+# Every relative link and § anchor in the documentation resolves.
+doc-links:
+    ./scripts/check-doc-links.py
 
 # Documentation builds without a broken intra-doc link.
 docs:

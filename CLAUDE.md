@@ -59,7 +59,7 @@ thing by construction.
 ```bash
 just                    # list every recipe
 just pre-pr             # every CI job, locally. The pre-PR check
-just ci                 # one of those six: fmt lint test device-check format-version-check changelog-check docs
+just ci                 # one of six: fmt lint test device-check format-version-check changelog-check doc-links docs
 just test               # the suite
 just test-one NAME      # one test or module, with output
 just check              # type-check, no binary
@@ -69,13 +69,16 @@ just bench              # criterion baselines (§20.9)
 just coverage           # lcov + a summary. Reported, never gated
 ```
 
-Outside `just ci` but still run on every PR, as separate `ci.yml` jobs:
-`just check-cuda`, `just build-cuda`, `just audit`, actionlint over
-`.github/workflows/`, and `just coverage`. **`just pre-pr` runs all six here,
-in CI's order** — use it, not `just ci`, when the question is whether a change
-is ready. The two things it cannot fully reproduce say so: `portable-check`
-builds outside a driverless container, and the CUDA recipes need a toolkit on
-this host. Outside the gate entirely,
+`ci.yml` runs **six jobs**, of which `just ci` is one. The other five are
+`portable-build` (`just portable-check` here), `cuda-compile` (`just check-cuda`
+*and* `just build-cuda` — two recipes, one job), `supply-chain` (`just audit`),
+`workflows` (actionlint), and `coverage` (`just coverage`).
+
+**`just pre-pr` runs all six, in CI's order**, as seven prerequisites — use it,
+not `just ci`, when the question is whether a change is ready. The two things it
+cannot fully reproduce say so: `portable-check` builds outside a driverless
+container, and the CUDA recipes need a toolkit on this host. Outside the gate
+entirely,
 deliberately, and nightly-only: `just test-tt-off`, `just bench`. `just
 test-load` runs neither — its CI job is commented out in `nightly.yml` until
 `tests/load.rs`'s `todo!()` bodies are implemented.
@@ -125,8 +128,13 @@ ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
 - **Every `uses:` in a workflow names a commit**, with the tag it belonged to in
   a trailing comment (`@3d3c42e… # v7`). A tag is a pointer its author can
   repoint; a commit is not. Dependabot bumps the pin and the comment together,
-  so do not "tidy" the comment away.
-- **Do not hard-wrap prose at a column count.** Not at 80, not at any number. Markdown, commit-message bodies, PR and issue text, YAML comments: one paragraph is one line, and a long paragraph breaks at a sentence boundary if it breaks at all. Every renderer that shows this text reflows it, monitors are wide, and a fixed wrap makes a one-word edit rewrite the whole paragraph in the diff. Two exceptions, and they are the only two: Rust source follows `rustfmt.toml`'s `max_width = 100`, enforced by `just fmt-check` — comments in `.rs` files match it, because a comment wider than the code it annotates reads badly in a split editor — and a commit *subject* line stays under ~72, because `git log --oneline`, `git shortlog` and GitHub's UI all truncate it. Nothing else has a column limit.
+  so do not "tidy" the comment away. The same applies to `container:` and
+  `image:` — a Docker tag is as mutable as an action tag, and the one this tree
+  uses builds the binary a release ships, so it is pinned by digest.
+- **The documentation cites itself several hundred times, and `just doc-links`
+  is what keeps that true.** Renaming a heading breaks every reference to it
+  silently; the check names all of them at once.
+- **Do not hard-wrap prose at a column count.** Not at 80, not at any number. Markdown, commit-message bodies, PR and issue text, YAML comments: one paragraph is one line, and a long paragraph breaks at a sentence boundary if it breaks at all. Every renderer that shows this text reflows it, monitors are wide, and a fixed wrap makes a one-word edit rewrite the whole paragraph in the diff. Two exceptions, and they are the only two. **Source files follow their language's own convention** — Rust `rustfmt.toml`'s `max_width = 100` under `just fmt-check`, Python PEP 8 — and comments inside them match the code they sit in, because source does not reflow and a comment wider than the code it annotates reads badly in a split editor. And a commit *subject* line stays under ~72, because `git log --oneline`, `git shortlog` and GitHub's UI all truncate it. Nothing else has a column limit — Markdown, commit bodies, PR and issue text, YAML comments: none.
 - **Existing files are 80-wrapped; unwrap what you edit.** Do not mass-rewrap a file you are not otherwise touching — that buries a real change under a formatting diff.
 - **Do not weaken a check to make it pass.** If `just test` objects to a changed
   Zobrist fingerprint, that is a `format_version` bump, not an expected-constant
@@ -135,7 +143,7 @@ ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
   never derived from the variant name (§9.1).
 - `anyhow` at the binary and seam boundaries, `thiserror` for typed domain
   errors. No `unwrap()` on a path that can be reached by a request.
-- **Every CodeRabbit review comment gets a reply, on its own thread, before the PR is done.** Verify the finding against the current code first — it may already be stale, and its stated consequence is the part reviewers get wrong most often. Reply pointing at the commit and line that fixes it, or state plainly why it is not being fixed. CodeRabbit resolves or re-argues from the reply; one consolidated PR comment leaves every thread looking unanswered.
+- **Every CodeRabbit review comment gets a reply, on its own thread, before the PR is done.** Verify the finding against the current code first — it may already be stale, and its stated consequence is the part reviewers get wrong most often. Reply pointing at the commit and line that fixes it, or state plainly why it is not being fixed. CodeRabbit resolves or re-argues from the reply; one consolidated PR comment leaves every thread looking unanswered. The exception is a finding with no comment id — the "Outside diff range" kind — which has no thread to reply on: answer those together in one PR comment naming each file and line, or wait for a later pass to promote them to inline threads.
   - The procedure is owned by the **`review-response`** skill, and it is worth loading rather than working from memory. It carries the trap that `gh api .../pulls/{n}/comments` silently omits "Outside diff range comments" — those live inside each review's own `body`, have no comment id, and are the easiest findings to miss entirely. It also carries the phase that makes a review worth having: deciding whether a finding named a *class* worth a permanent check, and recording the verdict in `.claude/skills/review-response/LESSONS.md` so a class seen twice stops being treated as a one-off.
 
 ## Layout

@@ -26,9 +26,19 @@ The two thresholds are different because the two destinations cost different thi
 
 ## If you changed documentation
 
-- **Find every other document that states the same thing, and change it too.** This tree says the same things in `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, `.claude/README.md` and the skills, on purpose — each for a different reader. A change to the gate, the release procedure or the five rules touches four or five files, and the ones you forget are the ones that quietly start lying. <sub>×1 — learned building #99: adding `just pre-pr` and CHANGELOG rotation required edits in all five, none of which any check would have caught.</sub>
+- **Find every other document that states the same thing, and change it too.** This tree says the same things in `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, `.claude/README.md` and the skills, on purpose — each for a different reader. A change to the gate, the release procedure or the five rules touches four or five files, and the ones you forget are the ones that quietly start lying. <sub>×3 — #99, three separate times. `just pre-pr` and CHANGELOG rotation needed edits in all five files; the pre-implementation sweep found `README.md` still saying "three rules" while seventeen other places said five, and `ROADMAP.md`'s definition of done — which ninety-four filed issues link to — still saying `just ci`; then a review found `/gate`'s frontmatter still advertising `just ci` while its body said `pre-pr`, and `CLAUDE.md`'s job list omitting `portable-check`. The link-shaped half graduated to `check-doc-links.py`; the semantic half is what is left, and no script decides it. **Frontmatter and metadata are documentation too** — that is where two of the three misses were.</sub>
+- **Never cite a line number in a document.** It is wrong by the next commit. Cite the file and something stable inside it — a `todo!()` message, a function name, a heading. <sub>×1 — #99's pre-implementation sweep: five of the eleven seam citations in `ROADMAP.md` already pointed at the wrong line, before a single seam had been touched.</sub>
 - **If the change contradicts `docs/architecture/`, stop and say so first.** The document is version 1.4 and approved; the code is the unfinished part. A disagreement is a defect in the code unless you can show the document is wrong — and if you can, that is a conversation before it is a commit. <sub>Standing rule, already in `CLAUDE.md` — restated here because it is what a diff should be read against.</sub>
 - **A constant with no § is the thing most likely to be "cleaned up" into a bug.** New numbers carry the section that decided them. <sub>Standing rule, already in `CLAUDE.md` — restated here because it is what a diff should be read against.</sub>
+
+## If you changed CI, a workflow, or anything it pulls in
+
+- **A container image tag is exactly as mutable as an action tag.** `uses:` is pinned to a commit here; `container:` and `image:` must be pinned to a digest for the same reason, and the digest to use is the multi-arch index so platform resolution still works. <sub>×1 — #99's pre-implementation sweep: `rust:1.98.0-slim-bookworm` was a floating tag in both `ci.yml` and `release.yml`, and it is the container that builds the binary a release ships.</sub>
+
+## If you wrote a rule, a policy, or a checklist
+
+- **State what it says about everything it will be read against, or it will be read against them anyway.** A rule that names one case leaves every other case to be argued about later, by someone who will reasonably read the omission as permission or as prohibition — whichever suits. <sub>×1 — #99: the no-hard-wrap rule named Rust source and said nothing about Python, so a reviewer correctly read PEP 8 comments in `scripts/*.py` as a violation of it. The rule was incomplete, not the code.</sub>
+- **Do not require something the platform cannot do.** A checklist item that is impossible is not a high standard, it is an item everyone learns to skip — and skipping becomes the habit for the items that are possible. <sub>×1 — #99: the PR template demanded a reply "on its own thread" for outside-diff findings, which have no thread and no comment id to reply on.</sub>
 
 ## If you changed a validator, a parser, or a gate
 
@@ -40,6 +50,8 @@ The two thresholds are different because the two destinations cost different thi
 
 - **Anything the tree calls immutable needs the write path to say so.** Documentation does not stop `write_text`. <sub>×1 — #99: the CHANGELOG rotation could overwrite an archived release's notes, which the archive's own README calls permanent.</sub>
 - **Check every target before writing any of them.** A collision discovered halfway through leaves the tree in a state neither the old nor the new one. <sub>×1 — #99, same finding.</sub>
+- **A guard against overwriting must let a run resume itself.** Output identical to what this run would write is not a collision — it is this run, interrupted. Refusing it makes the retry impossible and the only way out a manual delete. <sub>×1 — #99: the collision guard added for one review made a half-finished rotation unrecoverable, and the next review caught it.</sub>
+- **A string from a document that becomes a filename is a path.** Validate it against the grammar it is supposed to have, before it is joined to a directory. `## [../../CLAUDE]` is a legal Markdown heading. <sub>×1 — #99. And `exists()` follows symlinks, so a dangling one reads as absent and gets written through; refuse a symlink whatever it points at.</sub>
 
 ## If you changed a `justfile` recipe with prerequisites
 
@@ -56,7 +68,8 @@ The two thresholds are different because the two destinations cost different thi
 
 ## Retired
 
-Nothing yet. A rule lands here when it graduates, with what replaced it and the PR list it earned on — the provenance is the point, and it must survive the promotion.
+A rule lands here when it graduates, with what replaced it and the PR list it earned on — the provenance is the point, and it must survive the promotion.
 
-- **To a script**, at ×2: name the check and the recipe that runs it.
-- **To `CLAUDE.md`**, at ×5: quote the rule as it was written there, so anyone wondering why that line exists in the project instructions can find the five findings that put it there.
+- **To a script, at ×2 — "a renamed heading breaks every reference to it, silently."** Now `scripts/check-doc-links.py`, run by `just doc-links` in `just ci`: every relative link and every `#anchor` across the documentation resolves, or the gate is red. <sub>×2 — #99. This is the link-shaped half of the doc-sync rule above; the half that needs judgment stayed there, because no script can tell that `README.md` saying "three rules" and `CLAUDE.md` saying "five" is a contradiction rather than two true sentences.</sub>
+
+The shape of an entry: **to a script**, at ×2, name the check and the recipe that runs it. **To `CLAUDE.md`**, at ×5, quote the rule as it was written there, so anyone wondering why that line exists in the project instructions can find the five findings that put it there.

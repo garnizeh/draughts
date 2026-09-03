@@ -53,6 +53,7 @@ recipe failed and why.
 | `test` | The suite | Read the test name — it names the property that broke |
 | `device-check` | `candle_core::Device` constructed outside `src/face/device.rs` (§19.6.5) | Take the device as a parameter. See the `face-layer` skill |
 | `format-version-check` | An insert does not name `format_version`, or `src/db` decodes without referencing `CURRENT_FORMAT_VERSION` (§20.8) | See the `persisted-format` skill |
+| `doc-links` | A relative link points at a file that is not there, or a `#anchor` at a heading that is not there | Fix the link. If a heading was renamed, every reference to it moved — the check names all of them at once |
 | `changelog-check` | `CHANGELOG.md` is out of order, or holds more than five released sections | `just changelog-rotate`. If it is an ordering complaint, the new section went in below an older one — newest first |
 | `docs` | Broken intra-doc link, `RUSTDOCFLAGS=-D warnings` | Fix the link; do not drop the doc comment |
 | `workflows` (CI job, no recipe) | actionlint found a real error in `.github/workflows/` — a bad expression, an undefined output, a shell mistake | Fix the workflow. `filter_mode: nofilter`, so a finding may be in a file this PR did not touch, and it is still worth fixing |

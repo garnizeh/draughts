@@ -4,7 +4,10 @@ argument-hint: "[PR number, default: the PR for the current branch]"
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep
 ---
 
-Work the review on PR $ARGUMENTS to completion. Load the `review-response` skill first — it owns this procedure, including the endpoint that silently omits half a review.
+Work the review on PR $ARGUMENTS to completion. If that is empty, resolve the
+PR for the current branch first — `gh pr view --json number --jq .number` — and
+say which PR you are working on. `argument-hint` documents a default; it does not
+supply one. Load the `review-response` skill first — it owns this procedure, including the endpoint that silently omits half a review.
 
 0. Read `.claude/skills/review-response/LESSONS.md` before triaging anything. It is a conditional checklist earned from past findings — it tells you what to look for in this diff, and whether a finding you would dismiss as a one-off has been seen before.
 1. Fetch **every** finding: the per-line comments *and* each review's full `body`, where the "Outside diff range comments" live. `--paginate` on both calls.

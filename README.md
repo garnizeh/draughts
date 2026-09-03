@@ -178,11 +178,13 @@ Recorded so a build that misses them by an order of magnitude is recognizably wr
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the setup, the gate, the release procedure, and the conventions. Security findings go through **[SECURITY.md](SECURITY.md)**, privately, not as an issue. A careful read of [docs/architecture/](docs/architecture/README.md) and an issue for anything that does not hold together is still worth as much as a patch — the eight defects listed in [§0.2.2](docs/architecture/00-revision-history.md#022-corrections) were all found that way, and the two revisions since were each caused by a single number nobody had derived.
 
-Three rules are not negotiable, because the whole design rests on them. The first and third are enforced by CI; the second is enforced by a test suite:
+Five rules are not negotiable, because the whole design rests on them. The first three are enforced mechanically — the first and third by CI greps, the second by a test suite — and the last two are enforced by review:
 
 1. **Reading a persisted BLOB without dispatching on its `format_version` is a review-blocking defect.** See [§13.7](docs/architecture/13-data-dictionary.md#137-format_version--new-in-11).
 2. **The transposition table may change how long a search takes and must never change what it returns.** See [§20.5](docs/architecture/20-testing-strategy.md#205-transposition-table-tests).
 3. **`candle_core::Device` is constructed in exactly one function.** A second construction anywhere in the tree is what turns the next device change from a one-line edit into a search-and-replace. See [§19.6.5](docs/architecture/19-extensibility-roadmap.md#1965-what-the-mvp-must-preserve).
+4. **The LLM never plays.** It cannot choose, validate or influence a move, and the constraint is enforced by types: `CommentaryContext` is the whole of what the Face layer is given, and there is no move in it. Adding a field to that struct is an architectural change, not a convenience. See [§2.3](docs/architecture/02-scope-and-constraints.md#23-explicit-constraint-llm-does-not-play-draughts).
+5. **A change that can only be tested on a GPU has broken the CPU path.** The whole suite runs on `face.device = "cpu"`, on the default build, on a runner with no driver. See [§20.10](docs/architecture/20-testing-strategy.md#2010-device-parity-and-cuda-tests).
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Run the full merge gate (just ci) and fix what it finds
+description: Run every CI job locally (just pre-pr) and fix what it finds
 argument-hint: "[optional: extra context or a recipe to run instead]"
 allowed-tools: Bash, Read, Edit, Glob, Grep
 ---
