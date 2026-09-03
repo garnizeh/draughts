@@ -1,6 +1,6 @@
 ---
 name: implement-seam
-description: Turn one of the todo!() seams in draughts into a real implementation — move generation, move application, tree search, random rollout, transposition store, the writer actor loop, the lab worker pool, batch recovery, or GGUF/tokenizer loading. Use whenever asked to implement, finish, fill in, or make something work in src/, and whenever a todo!() is hit at runtime or in a test.
+description: Turn one of the todo!() seams in draughts into a real implementation — move generation, move application, tree search, random rollout, transposition store, the writer actor loop, the lab worker pool, batch recovery, GGUF/tokenizer loading, or commentary dispatch. Use whenever asked to implement, finish, fill in, or make something work in src/, and whenever a todo!() is hit at runtime or in a test.
 ---
 
 # Implementing a seam
@@ -12,21 +12,24 @@ the section is the failure mode this skill exists to prevent.
 
 ## The seams
 
-```
-src/rules/moves.rs:100      move generation             §5.3, perft baselines in §20.1
-src/rules/moves.rs:111      move application            §5.3
-src/engine/mcts.rs:142      tree search                 §6.4; safety net is §20.5
-src/engine/evaluator.rs:164 random rollout playout      §6.3
-src/engine/transposition.rs:288 store, merge, capacity  §6.7.5
-src/db/writer.rs:156        writer actor loop           §11.2.2, durability §20.6
-src/lab/runner.rs:123       worker pool, batch lifecycle §5.5, §15.3
-src/lab/runner.rs:132       interrupted-batch recovery  §11.4
-src/face/candle_adapter.rs:87  GGUF load + tokenizer    §7.4
-src/face/candle_adapter.rs:121 host residency accounting §16.4
-src/face/candle_adapter.rs:129 CUDA memory accounting   §16.6
-```
+Located by their `todo!()` message rather than by line number. A line number in a document is wrong by the next commit: five of the eleven citations that used to sit here were pointing at the wrong line before a single seam had been touched, and one seam was missing from the list entirely.
 
-Line numbers drift; `grep -rn 'todo!' src` is authoritative.
+| Seam | File | `todo!()` says | Owning § |
+|---|---|---|---|
+| Move generation | `src/rules/moves.rs` | `move generation` | §5.3, perft baselines in §20.1 |
+| Move application | `src/rules/moves.rs` | `move application` | §5.3 |
+| Tree search | `src/engine/mcts.rs` | `tree search` | §6.4; safety net is §20.5 |
+| Random rollout | `src/engine/evaluator.rs` | `random rollout playout` | §6.3 |
+| TT store and capacity | `src/engine/transposition.rs` | `store, merge and capacity enforcement` | §6.7.5 |
+| Writer actor loop | `src/db/writer.rs` | `writer actor loop` | §11.2.2, durability §20.6 |
+| Lab worker pool | `src/lab/runner.rs` | `worker pool and batch lifecycle` | §5.5, §15.3 |
+| Batch recovery | `src/lab/runner.rs` | `interrupted-batch recovery` | §11.4 |
+| GGUF and tokenizer load | `src/face/candle_adapter.rs` | `GGUF load and tokenizer initialisation` | §7.4 |
+| Host residency accounting | `src/face/candle_adapter.rs` | `host-side residency accounting` | §16.4 |
+| CUDA memory accounting | `src/face/candle_adapter.rs` | `CUDA memory accounting` | §16.6 |
+| Commentary dispatch | `src/face/candle_adapter.rs` | `dispatch to the inference thread` | §7.4, and §7.8 for why it never retries |
+
+Twelve seams. `grep -rn 'todo!' src` is authoritative and returns thirteen hits — the thirteenth is a doc comment in `transposition.rs` describing the seams, not one of them.
 
 ## Procedure
 
@@ -77,7 +80,10 @@ Line numbers drift; `grep -rn 'todo!' src` is authoritative.
 - **`face::candle_adapter`** — the device arrives as a parameter. Do not
   construct one (`face-layer` skill). Loading must fail into the circuit
   breaker and the canned provider, never into a startup failure: a game against
-  canned commentary with no model file present is a fully valid game.
+  canned commentary with no model file present is a fully valid game. The
+  dispatch seam answers under a hard token and wall-clock budget and **never
+  retries internally**: the breaker owns that decision (§7.8), and a retry
+  underneath it is how three failures stop being three failures.
 
 ## What not to do
 

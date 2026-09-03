@@ -91,10 +91,7 @@ below are already satisfied by it — see the note under M6 and M7.
 
 Unimplemented, each a `todo!()` at its named seam:
 
-Located by their `todo!()` message rather than by line number, because a line
-number in a document is wrong by the next commit — five of the eleven citations
-here were already pointing at the wrong line before a single seam had been
-touched. `grep -rn 'todo!(' src/` is the authoritative list.
+Located by their `todo!()` message rather than by line number, because a line number in a document is wrong by the next commit — five of the eleven citations that used to be here were pointing at the wrong line before a single seam had been touched, and the twelfth seam was missing from the list altogether. `grep -rn 'todo!(' src/` is the authoritative list; it returns thirteen hits, the last of which is a doc comment in `transposition.rs` describing the seams rather than one of them.
 
 | Seam | File | `todo!()` says | Owning § |
 |---|---|---|---|
@@ -109,6 +106,7 @@ touched. `grep -rn 'todo!(' src/` is the authoritative list.
 | GGUF + tokenizer load | [candle_adapter.rs](../src/face/candle_adapter.rs) | `GGUF load and tokenizer initialisation` | §7.4 |
 | Host residency accounting | [candle_adapter.rs](../src/face/candle_adapter.rs) | `host-side residency accounting` | §16.4 |
 | CUDA memory accounting | [candle_adapter.rs](../src/face/candle_adapter.rs) | `CUDA memory accounting` | §16.6 |
+| Commentary dispatch | [candle_adapter.rs](../src/face/candle_adapter.rs) | `dispatch to the inference thread` | §7.4, §7.8 |
 
 The `/api/v1` handlers return `NotFound` or `Internal` placeholders, and
 [tests/load.rs](../tests/load.rs) is seven `todo!()` bodies.
