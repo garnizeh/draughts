@@ -274,6 +274,12 @@ A rule that is prone to false positives carries a `⚠ Looks like a violation bu
 
 One caveat stated in the file itself: `saved` is self-reported and has no review thread behind it. Record one only when you can name what it caught, as concretely as a miss names its finding. Since the hit rate divides by the sum of both, an inflated `saved` corrupts the only number that ranks the rules.
 
+## After the merge
+
+A PR with unanswered threads is not done, and neither is a merged PR whose branch is still there. Once it lands: back to `main`, `git pull --ff-only origin main`, delete the branch locally once an empty `git diff main <branch>` shows `main` already holds its content, delete it on `origin` if the repository's delete-on-merge has not already, then `git fetch --prune` so no tracking ref outlives the branch it names.
+
+The local deletion is `git branch -D` behind that content check rather than the `git branch -d` you would expect, and the reason is worth knowing before it surprises you: this repository merges by squash only, so the commit on `main` is never the branch's commit and `-d`'s ancestry test refuses every time — including for a branch that merged perfectly. Comparing the trees is the stronger check anyway, and it is the one that stays true after a squash. The pasteable sequence and the rest of the traps are in [.claude/skills/merge-gate/](.claude/skills/merge-gate/SKILL.md).
+
 ## Filing an issue
 
 Six forms in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/), chosen by what

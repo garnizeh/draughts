@@ -101,7 +101,7 @@ ritual; a hand-cut tag skips the only thing guaranteeing the notes exist. The
 - **Finish at the gate.** A change is not done until `just pre-pr` is green —
   every job CI runs, run here. Report the actual output; do not describe a run
   you did not make, and never round a check that did not run up to green.
-- **A merge is not finished until the branch is gone.** Once a PR is merged: back to `main`, `git pull --ff-only origin main`, `git branch -d` the branch, delete it on `origin` if GitHub's delete-on-merge has not already, then `git fetch --prune` so no tracking ref outlives the branch it names. The `merge-gate` skill owns the sequence and its two traps — `-d` refuses on every branch, because squash is this repository's only merge method, and the remote delete usually fails because delete-on-merge already did it.
+- **A merge is not finished until the branch is gone.** Once a PR is merged: back to `main`, `git pull --ff-only origin main`, delete the branch once an empty `git diff main <branch>` proves `main` holds its content, delete it on `origin` if delete-on-merge has not already, then `git fetch --prune` so no tracking ref outlives the branch it names. The `merge-gate` skill owns the pasteable sequence and why the deletion is `-D` behind that check: squash is this repository's only merge method, so `git branch -d` refuses on every branch, and a sequence built on a command that always fails teaches the bare-`-D` reflex it was meant to prevent.
 - **The unfinished parts are `todo!()` at named seams.** Each carries the section
   that owns it. Implement against that section, not against a guess. The
   `implement-seam` skill has the procedure.
