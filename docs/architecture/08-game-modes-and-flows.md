@@ -8,7 +8,7 @@ flowchart TB
     B --> C["API validates match state"]
     C --> D["Rules Core validates the move"]
     D --> E["Move applied to GameState<br/>Zobrist updated incrementally"]
-    E --> F{"Game terminal?"}
+    E --> F{"Game over?<br/>Rules Core terminality,<br/>or a §5.3.1 draw"}
 
     F -->|Yes| G1["Enqueue durable write:<br/>game result, ack awaited"]
     G1 --> G2["Return the finished board"]
@@ -31,6 +31,7 @@ flowchart TB
 Important constraints:
 
 - Human move validation is always done by Rules Core.
+- **The two draw rules are adjudicated here, not by `apply_move`** ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)). The match service holds the Zobrist keys seen since the last capture or promotion and checks them, and reads `GameState.non_progress_plies` against the configured threshold, after every applied move — its own and the engine's. The Rules Core reports only that the side to move has no move.
 - CPU move is chosen only by MCTS.
 - LLM commentary is generated after state transition, not before.
 - If the model fails, the game continues unaffected and the breaker absorbs the fault.
@@ -49,7 +50,7 @@ flowchart TB
         D["Derive seed = hash(batch_seed, game_index)"]
         D --> E["Lease id ranges for games and positions<br/>from the id allocator"]
         E --> F["Initialize the seeded GameState"]
-        F --> G{"Terminal?"}
+        F --> G{"Game over?<br/>terminality, or a §5.3.1 draw"}
         G -->|No| H["MCTS search with the configured evaluator"]
         H --> I{"probe shared TT"}
         I -->|Hit| J["Reuse the cached moves and value"]
@@ -58,7 +59,7 @@ flowchart TB
         K --> L
         L --> M["Optionally sample root and child stats"]
         M --> N["Apply move"]
-        N --> O["Append the move to the in-worker history buffer"]
+        N --> O["Append the move to the in-worker history buffer<br/>and its key to the repetition window (§5.3.1)"]
         O --> G
     end
 

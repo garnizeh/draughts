@@ -27,6 +27,16 @@ flush_interval_ms = 250              # commit even if the batch is not full
 max_retries       = 5
 retry_backoff_ms  = [10, 50, 250, 1000, 5000]
 
+# The English-draughts draw rules, as values rather than as constants. §19.4
+# lists these among the dials a variant layer would swap; they are the first to
+# exist. Changing them is still `english_draughts` on the board and no longer
+# `english_draughts` in the rulebook, so §23.1 says so out loud.
+[rules.draw]
+non_progress_plies = 80              # 40 moves per side, ACF — §5.3.1
+non_progress_reset = "capture_or_man_move"  # "capture_or_man_move" | "capture"
+repetition_count   = 3               # three-fold
+repetition_window  = "since_irreversible"   # "since_irreversible" | "whole_game"
+
 [engine.play]
 evaluator            = "random_rollout"
 iterations           = 4000          # a ceiling; time_budget_ms binds first here — §16.2
@@ -119,6 +129,8 @@ max_vram_mb         = 4608           # device memory, validated at load — §16
 - **The inactive profile fails the check** → start, and warn loudly, once. A CUDA deployment whose CPU fallback cannot meet the deadline is one driver update away from a silent outage.
 
 The estimate is deliberately crude and deliberately conservative. It is not trying to predict latency; it is trying to catch a configuration that is wrong by a factor of two or more, which is the only kind of error this class of defect has ever actually taken.
+
+**Draw policy.** The four `[rules.draw]` keys are checked for shape and for variant. `non_progress_plies = 0` and `repetition_count < 2` are refusals: the first declares every game drawn before it starts, the second declares one drawn at the opening position, and neither is a game. Beyond that the keys are accepted as configured — and a policy that departs from the `english_draughts` defaults in [§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15) warns, once, naming the keys that moved. A warning rather than a refusal, because being able to move them is the entire point of their being keys; not silence, because `games.rules` records `english_draughts` for every game whatever it was played under, and a dataset whose draws came from a threshold nobody remembers changing carries an invisible confound of exactly the kind [§16.2](16-memory-strategy.md#162-engine-budgets) refuses for time-bounded lab searches.
 
 ---
 

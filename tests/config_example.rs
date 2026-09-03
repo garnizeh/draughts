@@ -6,7 +6,7 @@
 //! file operators copy, and §23 is the file reviewers read; this test is what
 //! keeps the two of them and the code in agreement.
 
-use draughts::config::{Config, TtMode, validate};
+use draughts::config::{Config, NonProgressReset, RepetitionWindow, TtMode, validate};
 use draughts::face::DeviceKind;
 
 fn example() -> Config {
@@ -37,6 +37,20 @@ fn the_example_configuration_validates() {
         "draughts.example.toml does not validate: {:?}",
         report.errors
     );
+}
+
+/// §5.3.1: the committed example ships the English-draughts draw rules. These
+/// four values are the ones §5.3.1 argues for, and the termination proof for
+/// random play depends on the reset condition specifically — a man move counts
+/// as progress, a king move does not.
+#[test]
+fn the_example_ships_the_english_draughts_draw_rules() {
+    let draw = example().rules.draw;
+
+    assert_eq!(draw.non_progress_plies, 80, "40 moves per side, ACF");
+    assert_eq!(draw.non_progress_reset, NonProgressReset::CaptureOrManMove);
+    assert_eq!(draw.repetition_count, 3);
+    assert_eq!(draw.repetition_window, RepetitionWindow::SinceIrreversible);
 }
 
 /// §16.1: the projected ceiling must sit under the budget with room to spare,

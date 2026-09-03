@@ -191,6 +191,9 @@ The MVP default evaluator.
 pub struct RandomRolloutEvaluator {
     rng_seed: u64,
     max_playout_ply: u32,
+    /// The non-progress half of §5.3.1, from `[rules.draw]`. The repetition
+    /// half is not here: it needs a key history, which a playout does not carry.
+    draw_policy: DrawPolicy,
 }
 
 impl EvaluationStrategy for RandomRolloutEvaluator {
@@ -199,8 +202,14 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
     }
 
     fn identity(&self) -> EvaluatorIdentity {
+        // The threshold and the reset rule change which trajectories the
+        // playout can produce, so they change the distribution being sampled.
+        // Two configurations that differ here are two evaluators, and §6.7
+        // must not pool their estimates. Same reasoning as max_playout_ply.
         EvaluatorIdentity::new("random_rollout", &[
             ("max_playout_ply", self.max_playout_ply as u64),
+            ("non_progress_plies", self.draw_policy.non_progress_plies as u64),
+            ("non_progress_reset", self.draw_policy.non_progress_reset as u64),
         ])
     }
 
@@ -230,7 +239,12 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
     ) -> f32 {
         let mut simulated = state.clone();
 
+        // Three stopping conditions, and only the first two are real. §5.3.1
+        // proves that the non-progress rule alone terminates every playout in a
+        // finite number of plies, which is what demotes max_playout_ply from
+        // the thing that guarantees termination to a backstop against a bug.
         while simulated.status == GameStatus::Ongoing
+            && !self.draw_policy.non_progress_draw(&simulated)
             && simulated.ply < self.max_playout_ply
         {
             let legal_moves = generate_legal_moves(&simulated);
@@ -245,6 +259,10 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
 
         match simulated.status {
             GameStatus::Finished(result) => score_result(result, perspective),
+            // Two ways to arrive here, scored the same and meaning different
+            // things: a playout drawn on the non-progress rule, which is a
+            // result, and one cut off at max_playout_ply, which is the
+            // backstop declining to guess. §5.3.1.
             GameStatus::Ongoing => 0.0,
         }
     }
@@ -252,6 +270,8 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
 ```
 
 The MCTS engine does not know that this evaluator uses random rollouts. It only knows that it receives a normalized value, and — via `is_position_pure()` — whether that value may be written into a cache that other games will read.
+
+The playout adjudicates its own non-progress draw rather than deferring to the game loop the way a real game does ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)). That is safe in both table modes for the same reason the rollout is impure to begin with: its values are `TtKind::Estimate`, which `Deterministic` mode never caches at all and `Throughput` mode only pools across evaluators of identical identity — and the policy is now part of that identity.
 
 ---
 
@@ -629,6 +649,8 @@ flowchart TB
 ```
 
 A collision costs a probe and nothing else. The full board is compared before any cached value is trusted, so a 64-bit key clash degrades throughput and can never change a move.
+
+**Terminality is a pure function of the position, and the draw rules are what keep it one.** A `TtKind::Terminal` entry is found by Zobrist key and verified against the board and the side to move — nothing else. Neither of the MVP's draw rules ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)) is a function of the position alone: three-fold repetition depends on the path taken to reach it, and the non-progress counter is state carried beside the board. Adjudicating either inside `apply_move` would make `Finished` depend on how a position was reached, and the table could then serve a proven draw for a position that is not drawn — the table changing *what* a search returns rather than how long it takes, which is precisely what [§20.5](20-testing-strategy.md#205-transposition-table-tests) forbids. Both rules are therefore applied by the game loop above the Rules Core; no counter joins `TtKey` and no history joins `TtEntry`. The one place the policy does reach the table is the rollout evaluator's `EvaluatorIdentity` ([§6.3](#63-random-rollout-evaluator)), which is the existing mechanism for exactly this and needs no addition.
 
 `TtEntry::merge` folds a new sample into the running mean for `Estimate` entries, and is a no-op for `Terminal` entries — a proven score is never diluted by an approximation:
 

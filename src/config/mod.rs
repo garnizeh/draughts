@@ -17,6 +17,7 @@ pub use validate::{ValidationError, ValidationReport};
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+    pub rules: RulesConfig,
     pub engine: EngineConfig,
     pub lab: LabConfig,
     pub face: FaceConfig,
@@ -148,6 +149,71 @@ impl Default for WriterConfig {
             retry_backoff_ms: vec![10, 50, 250, 1000, 5000],
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// [rules] — §5.3.1
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct RulesConfig {
+    pub draw: DrawConfig,
+}
+
+/// The two MVP draw rules, as values rather than as constants (§5.3.1).
+///
+/// §19.4 lists draw thresholds among the policies a post-MVP variant layer
+/// would make swappable; these are the first of those dials to exist. The
+/// defaults are the `english_draughts` values and nothing in the MVP is
+/// expected to move them — which is why §23.1 warns, rather than refuses, when
+/// something does: `games.rules` records `english_draughts` for a game
+/// whatever thresholds it was played under.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct DrawConfig {
+    /// Plies without progress before the game is drawn. 80 is 40 moves per
+    /// side — the American Checker Federation's 40-move rule.
+    pub non_progress_plies: u32,
+    /// What counts as progress. `CaptureOrManMove` is the ACF rule and is what
+    /// makes termination provable: men only move forward, so the number of
+    /// resets in a game is bounded (§5.3.1).
+    pub non_progress_reset: NonProgressReset,
+    /// Occurrences of the same position before the game is drawn. Three-fold.
+    pub repetition_count: u32,
+    /// The window the occurrences are counted over. `SinceIrreversible` bounds
+    /// the key history the game loop has to keep: no position from before a
+    /// capture or a promotion can recur after one.
+    pub repetition_window: RepetitionWindow,
+}
+
+impl Default for DrawConfig {
+    fn default() -> Self {
+        Self {
+            non_progress_plies: 80,
+            non_progress_reset: NonProgressReset::CaptureOrManMove,
+            repetition_count: 3,
+            repetition_window: RepetitionWindow::SinceIrreversible,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NonProgressReset {
+    /// A capture or any man move resets the counter. A king move does not.
+    CaptureOrManMove,
+    /// Only a capture resets the counter.
+    Capture,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepetitionWindow {
+    /// Counted since the last capture or promotion.
+    SinceIrreversible,
+    /// Counted over the whole game.
+    WholeGame,
 }
 
 // ---------------------------------------------------------------------------

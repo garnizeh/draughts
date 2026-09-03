@@ -62,7 +62,7 @@ Responsibilities:
 - Multi-jump sequences.
 - Promotion.
 - Terminal detection.
-- Draw rules for MVP.
+- Draw rules for MVP ([§5.3.1](#531-draw-rules-for-mvp--new-in-15)).
 - Deterministic state hashing.
 
 **Zobrist hashing is promoted from "deterministic state hashing" to a first-class, specified requirement in 1.1**, because it is now the key of a shared cache rather than merely a column in `positions`. Requirements:
@@ -79,6 +79,33 @@ This component must remain:
 - Free from I/O.
 - Free from LLM concerns.
 - Free from persistence concerns.
+
+### 5.3.1 Draw Rules for MVP — New in 1.5
+
+Through 1.4 the responsibility list above said only "draw rules for MVP" and no section said which rules or what thresholds, while [§20.1](20-testing-strategy.md#201-rules-tests) required them tested, [§19.4](19-extensibility-roadmap.md#194-rule-variants) described a future layer that would make their thresholds swappable, and [§25](25-acceptance-criteria.md) criterion 5 required terminal detection to be provable. Every layer above the Rules Core was written against a draw the Rules Core had no rule for. This subsection is that rule.
+
+**The non-progress rule.** A game is drawn after **80 plies** — 40 moves per side — in which no capture has been made and no man has moved. The counter is reset by a capture **or** by any man move, and by nothing else: a king move is not progress. This is the American Checker Federation's 40-move rule, and the reset condition is the load-bearing half of it. Men only ever move forward, so the number of man moves available in a game is bounded; captures are bounded by the twenty-four pieces on the board; therefore the number of resets is bounded, and a game must reach the threshold in a finite number of plies. That termination proof is the reason the rule is specified here rather than left to the first implementation, and it is the thing that is lost if the counter is allowed to reset on a king move.
+
+The counter is `GameState.non_progress_plies`, a `u32` maintained incrementally by `apply_move` beside `ply` and `hash`. Four bytes and no allocation, which matters because `GameState` is cloned on every path the search walks ([§16.2](16-memory-strategy.md#162-engine-budgets)).
+
+**The repetition rule.** A game is drawn when the same position occurs for the **third** time, counted **since the last irreversible move** — the last capture or promotion. A position is identified by its Zobrist key, which already folds in the side to move, so "the same position" means the same key and therefore the same side on move. Counting since the last irreversible move rather than over the whole game is what bounds the history: a capture and a promotion are both undoable only by starting a different game, so no position from before one can recur after it, and the keys held before it can be dropped.
+
+**Which layer adjudicates: the game loop, not `apply_move`.** [§20.5](20-testing-strategy.md#205-transposition-table-tests) requires the transposition table to change how long a search takes and never what it returns, and [§6.7](06-mcts-extensibility.md#67-global-transposition-table--new-in-11) caches terminal detection under a `TtKey` derived from the Zobrist key alone. Terminality must therefore be a pure function of `(board, side_to_move)` — and neither draw rule is one. Both depend on how the position was reached. So `apply_move` sets `GameStatus::Finished` for the single position-pure terminal condition, which is that the side to move has no legal move and has therefore lost, and for that condition only. The two draw rules are applied above it, by whatever owns the game: the lab runner's per-worker game loop ([§5.5](#55-training-lab-runner)) and the Play Mode service. That layer owns the key history. `GameState` does not, which is the second reason it stays cheap to clone.
+
+Three consequences follow, and they are why the decision belongs in the document rather than in a pull request:
+
+1. **`TtKey` and [§6.7](06-mcts-extensibility.md#67-global-transposition-table--new-in-11) are untouched.** No counter joins the key, no history joins the entry, and `TtKind::Terminal` keeps meaning exactly what it has meant since 1.1. [§6.7.3](06-mcts-extensibility.md#673-probe-and-store) states the same thing from the table's side.
+2. **The random rollout applies the non-progress rule and not the repetition rule.** The counter travels inside the cloned `GameState` for nothing; a key history does not, and a random playout repeats a position too rarely for one to pay for itself. This gives the rollout the termination proof it never had: `max_playout_ply` ([§6.3](06-mcts-extensibility.md#63-random-rollout-evaluator)) stops being what guarantees a playout ends and becomes the backstop it was always meant to be. It also makes the non-progress policy part of the distribution the rollout samples, so the policy joins `EvaluatorIdentity` exactly as `max_playout_ply` already has — two configurations with different thresholds are different evaluators and their estimates must not pool.
+3. **The search does not see repetition.** The engine can therefore walk into a line the game loop then adjudicates as drawn, while the search believed it was winning. This is an accepted MVP limitation, stated rather than discovered: correcting it means giving the search a path history, which is a change to search design ([§19.4](19-extensibility-roadmap.md#194-rule-variants)), not to the rules.
+
+**All four values are configuration, and the numbers above are the defaults.** [§19.4](19-extensibility-roadmap.md#194-rule-variants) lists draw thresholds among the policies a post-MVP variant layer would make swappable. 1.5 makes that half true early, because the cost is one `[rules.draw]` table and four validated keys ([§23](23-configuration-example.md), [§23.1](23-configuration-example.md#231-startup-validation)) while the benefit is that these numbers live in one file instead of as constants distributed through the rules core. Nothing in the MVP is expected to change them. A configuration that does is no longer playing `english_draughts` even though `games.rules` will still record that it was, so [§23.1](23-configuration-example.md#231-startup-validation) warns — once, naming the keys that moved.
+
+### 5.3.2 Two Fine Rules, Stated — New in 1.5
+
+[§2.1](02-scope-and-constraints.md#21-in-scope) fixes the variant as `english_draughts`, which settles most of the fine rules by reference. Two of them decide code in the move generator, are one sentence each, and are expensive to get wrong silently, so they are written down:
+
+- **A man crowned by a jump does not continue jumping.** Promotion ends the move, even where the newly crowned king would have a further jump available from the square it landed on. This is the English-draughts rule and it is the opposite of the international one, which is the reason it is worth stating.
+- **A capture sequence must be completed, but need not be maximal.** When captures are available the side to move must capture, and may choose any one of the available sequences; having chosen, it must play that sequence out until the moving piece has no further jump. There is no requirement to choose the sequence that captures the most pieces.
 
 ## 5.4 MCTS Engine
 
@@ -118,6 +145,7 @@ Responsibilities:
 Each worker owns:
 
 - One `GameState` and one MCTS arena, reused across games to avoid reallocation churn.
+- One repetition window — the Zobrist keys seen since the last capture or promotion — cleared at each irreversible move and at each new game. The worker's game loop adjudicates both draw rules from it and from `GameState.non_progress_plies`, because the Rules Core deliberately does not ([§5.3.1](#531-draw-rules-for-mvp--new-in-15)).
 - One deterministic RNG seeded from `(batch_seed, game_index)`.
 - One id allocator lease for pre-assigning `games.id` and `positions.id` ([§15.2](15-concurrency-model.md#152-the-write-path--mpsc-actor-detail)), which is what makes it possible to build `position_edges` rows before their parent rows have been committed.
 

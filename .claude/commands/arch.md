@@ -4,7 +4,7 @@ argument-hint: "<question — e.g. how does eviction work, why two model profile
 allowed-tools: Skill, Read, Grep, Glob
 ---
 
-Answer from `docs/architecture/` (v1.4, authoritative), not from the code and
+Answer from `docs/architecture/` (v1.5, authoritative), not from the code and
 not from memory: $ARGUMENTS
 
 Use the `architecture-map` skill to find the section, read it in full, then

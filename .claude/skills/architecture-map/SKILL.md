@@ -5,7 +5,7 @@ description: Find the authoritative architecture section for any question about 
 
 # Architecture map
 
-`docs/architecture/` is one document in 34 files, version 1.4, approved. It is
+`docs/architecture/` is one document in 34 files, version 1.5, approved. It is
 authoritative: the code is written against it, and every non-obvious decision in
 the tree cites the section that justifies it. Read the section before writing
 the code, and cite it in the comment.

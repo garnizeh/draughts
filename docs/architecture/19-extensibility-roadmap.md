@@ -68,12 +68,12 @@ The Rules Core should isolate rule policy:
 
 - Forced captures.
 - Flying kings.
-- Draw thresholds.
+- Draw thresholds — **the first of these dials to exist, configurable since 1.5** ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15), [§23](23-configuration-example.md)). The `[rules.draw]` keys default to the `english_draughts` values.
 - International rules.
 
-For MVP, only one variant is enabled.
+For MVP, only one *variant* is enabled: the draw thresholds move and nothing else does. A configuration that changes them is still playing on an 8×8 board with mandatory captures and non-flying kings, which is what makes it a configuration key rather than a variant identifier — and why [§23.1](23-configuration-example.md#231-startup-validation) warns rather than refuses, since `games.rules` records `english_draughts` for a game whatever thresholds it was played under.
 
-A rule variant changes which moves are legal from a position, which makes cached move lists variant-specific. When variants land, the variant identifier must be folded into `TtKey` or into the table's identity, exactly as `EvaluatorIdentity` is today. International draughts on a 10×10 board would additionally change the board encoding, and is therefore a `format_version` bump.
+A rule variant changes which moves are legal from a position, which makes cached move lists variant-specific. When variants land, the variant identifier must be folded into `TtKey` or into the table's identity, exactly as `EvaluatorIdentity` is today. The draw thresholds are the exception that proves the rule and are worth understanding before the next dial is turned: they need no such folding because [§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15) deliberately keeps them out of everything the table caches — they change no legal move list and no terminal detection — except the rollout's `EvaluatorIdentity`, which already carries them. A dial that changes legal moves will not have that option. International draughts on a 10×10 board would additionally change the board encoding, and is therefore a `format_version` bump.
 
 ---
 

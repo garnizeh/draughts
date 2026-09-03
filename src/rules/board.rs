@@ -147,6 +147,18 @@ pub struct GameState {
     pub side_to_move: Side,
     pub status: GameStatus,
     pub ply: u32,
+    /// Plies since the last capture or man move — the non-progress half of the
+    /// draw rules (§5.3.1). Maintained by `apply_move` beside `ply` and `hash`;
+    /// four bytes and no allocation, because `GameState` is cloned on every
+    /// path the search walks (§16.2).
+    ///
+    /// Reading it is not the same as ruling on it. `apply_move` never sets
+    /// `Finished(Draw)` from this counter: a draw adjudicated here would make
+    /// terminality depend on how a position was reached, and §6.7 caches
+    /// terminality under a key derived from the Zobrist hash alone. The game
+    /// loop above the rules core adjudicates, and owns the repetition history
+    /// this struct deliberately does not carry.
+    pub non_progress_plies: u32,
     /// Incrementally maintained across `apply_move`; never recomputed per node.
     pub hash: Zobrist,
     pub history: Vec<Move>,
@@ -163,6 +175,7 @@ impl GameState {
             side_to_move,
             status: GameStatus::Ongoing,
             ply: 0,
+            non_progress_plies: 0,
             history: Vec::new(),
         }
     }

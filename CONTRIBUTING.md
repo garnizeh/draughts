@@ -1,6 +1,6 @@
 # Contributing
 
-The architecture is settled at version 1.4; the implementation is not finished.
+The architecture is settled at version 1.5; the implementation is not finished.
 Start with [docs/architecture/](docs/architecture/README.md) — the code is
 written against it, and every non-obvious decision in the tree cites the section
 that justifies it.
@@ -311,7 +311,7 @@ that saves the most time. If a field does not apply, say so in a line; a blank
 field and a deliberately empty one look identical.
 
 The exception, and it is the only one: **do not restate the specification.** It
-is approved at v1.4 and already written. Cite the § and quote it only where the
+is approved at v1.5 and already written. Cite the § and quote it only where the
 exact wording is what the issue turns on. Maximum detail means maximum detail
 about *your situation* — the part that exists nowhere else.
 

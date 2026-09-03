@@ -5,7 +5,7 @@ in Rust. One process, one SQLite file, no sidecars. An in-process quantized LLM
 writes commentary and is never permitted to touch the game.
 
 **The tree is written against a settled architecture.** `docs/architecture/` is
-version 1.4, reviewed and approved; the code is the part that is unfinished.
+version 1.5, reviewed and approved; the code is the part that is unfinished.
 When the code and the document disagree, the document is right and the code is a
 defect — unless you can show the document is wrong, in which case say so before
 writing anything.

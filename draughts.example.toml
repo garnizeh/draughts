@@ -37,6 +37,16 @@ flush_interval_ms = 250              # commit even if the batch is not full
 max_retries       = 5
 retry_backoff_ms  = [10, 50, 250, 1000, 5000]
 
+# The English-draughts draw rules, as values rather than as constants. §19.4
+# lists these among the dials a variant layer would swap; they are the first to
+# exist. Changing them is still `english_draughts` on the board and no longer
+# `english_draughts` in the rulebook, so §23.1 says so out loud.
+[rules.draw]
+non_progress_plies = 80              # 40 moves per side, ACF — §5.3.1
+non_progress_reset = "capture_or_man_move"  # "capture_or_man_move" | "capture"
+repetition_count   = 3               # three-fold
+repetition_window  = "since_irreversible"   # "since_irreversible" | "whole_game"
+
 [engine.play]
 evaluator            = "random_rollout"
 iterations           = 4000          # a ceiling; time_budget_ms binds first — §16.2
