@@ -112,6 +112,8 @@ Everything above this line happens **before** you push: the fixes, the harvest, 
 
 If a finding requires code changes and the harvest requires documenting them, do the documenting first and commit both together — as one commit or several, it does not matter, as long as no `git push` happens in between. Only the very first push of a *round* of fixes is the one that should exist; a `git commit --amend` or a follow-up commit added to the same unpushed range costs nothing.
 
+**Run `just pre-pr` before that push, not after it.** The full gate has to pass on the exact tree state about to be pushed — checked before the push, not reported afterward as a formality. A red `just pre-pr` discovered post-push is the same failure this phase exists to prevent: it forces a second push to fix it, which is the second CodeRabbit review that may have no rate-limit allowance left to run. Fix, harvest, write the rule down, run `just pre-pr` and get it green, *then* push once and reply.
+
 ```bash
 gh api repos/garnizeh/draughts/pulls/PR/comments/COMMENT_ID/replies -f body='…'
 ```
