@@ -117,7 +117,7 @@ The guiding principle is that **the engine is authoritative and everything else 
 | C | [Migration from v1.0](appendix-c-migration-from-v1-0.md) | Ten ordered steps, and what rollback does |
 | D | [Risks and Open Questions](appendix-d-risks-and-open-questions.md) | Thirteen recorded risks, so they stay decisions rather than discoveries |
 | E | [v1.0 → v1.1 Change Checklist](appendix-e-change-checklist.md) | Historical. Every value that moved in that revision |
-| F | [v1.3 → v1.4 Change Checklist](appendix-f-v13-to-v14-checklist.md) | **Current.** Every value that moved when the assumed host was replaced with the real one |
+| F | [v1.3 → v1.4 Change Checklist](appendix-f-v13-to-v14-checklist.md) | **The current figures.** Every value that moved when the assumed host was replaced with the real one. v1.5 moved none, and has no checklist of its own — see [§0.5](00-revision-history.md#05-what-changed-in-15) |
 
 ---
 

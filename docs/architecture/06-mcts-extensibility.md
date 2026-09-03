@@ -25,6 +25,7 @@ classDiagram
         +Side side_to_move
         +GameStatus status
         +u32 ply
+        +u32 non_progress_plies
         +Zobrist hash
         +Vec~Move~ history
     }
@@ -105,7 +106,8 @@ pub struct GameState {
     pub side_to_move: Side,
     pub status: GameStatus,
     pub ply: u32,
-    pub hash: Zobrist,      // incrementally maintained, see §5.3
+    pub non_progress_plies: u32,  // maintained by apply_move; never ruled on there, see §5.3.1
+    pub hash: Zobrist,            // incrementally maintained, see §5.3
     pub history: Vec<Move>,
 }
 ```
@@ -239,6 +241,17 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
     ) -> f32 {
         let mut simulated = state.clone();
 
+        // The playout counts non-progress from zero rather than inheriting the
+        // leaf's count. Inheriting it would make the sampled distribution a
+        // function of how the leaf was reached, while §6.7 pools Estimate
+        // entries by position alone: the same board probed at counters 0 and 79
+        // would contribute to one mean while sampling materially different
+        // games — the second is one ply from a drawn playout and the first is
+        // not. Resetting keeps the distribution a pure function of
+        // (board, side_to_move), which is the property pooling needs, and costs
+        // nothing in termination, since §5.3.1's proof holds from any position.
+        simulated.non_progress_plies = 0;
+
         // Three stopping conditions, and only the first two are real. §5.3.1
         // proves that the non-progress rule alone terminates every playout in a
         // finite number of plies, which is what demotes max_playout_ply from
@@ -271,7 +284,11 @@ impl EvaluationStrategy for RandomRolloutEvaluator {
 
 The MCTS engine does not know that this evaluator uses random rollouts. It only knows that it receives a normalized value, and — via `is_position_pure()` — whether that value may be written into a cache that other games will read.
 
-The playout adjudicates its own non-progress draw rather than deferring to the game loop the way a real game does ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)). That is safe in both table modes for the same reason the rollout is impure to begin with: its values are `TtKind::Estimate`, which `Deterministic` mode never caches at all and `Throughput` mode only pools across evaluators of identical identity — and the policy is now part of that identity.
+The playout adjudicates its own non-progress draw rather than deferring to the game loop the way a real game does ([§5.3.1](05-runtime-components.md#531-draw-rules-for-mvp--new-in-15)), and **it counts from zero at the leaf**. Those two sentences have to be read together, because the first without the second is a defect.
+
+`Throughput` mode pools `TtKind::Estimate` entries across games by position: `probe` and `store` compare the board, the side to move and the `EvaluatorIdentity`, and nothing else. A playout that inherited the leaf's non-progress count would therefore sample one distribution at counter 0 and a quite different one at counter 79 — the second being a single ply from a drawn playout — and merge both into one mean under the same key. That is not the ordinary sampling noise `Throughput` mode accepts; it is a systematic distortion, and it would have been introduced by the very rule that was meant to make the playout terminate honestly.
+
+Counting from zero removes it at the cost of one assignment. The playout's distribution is a pure function of `(board, side_to_move)` and the policy, so pooling is sound and `EvaluatorIdentity` carrying the policy is both necessary and sufficient. What the search gives up is knowing that a position is nearly drawn by attrition: near the threshold the rollout is optimistic about decisive results. That is the same limitation as the search not seeing repetition, arrived at from the other direction, and it resolves to one invariant worth stating plainly — **the evaluator reads the position and never the path**.
 
 ---
 

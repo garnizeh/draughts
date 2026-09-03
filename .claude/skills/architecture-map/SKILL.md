@@ -26,12 +26,12 @@ read the enclosing `##` heading. The index at
 
 | § | File | Settles |
 |---|---|---|
-| 0 | `00-revision-history.md` | What changed in 1.1–1.4 and why; the eight corrections in §0.2.2 |
+| 0 | `00-revision-history.md` | What changed in 1.1–1.5 and why; the eight corrections in §0.2.2; §0.5 the draw rules |
 | 1 | `01-executive-summary.md` | The two modes; what the MVP emphasizes |
 | 2 | `02-scope-and-constraints.md` | In/out of scope; §2.3 the LLM does not play; §2.4 the hardware baseline every number derives from |
 | 3 | `03-system-context.md` | Every component in one process; the files on disk |
 | 4 | `04-separation-of-concerns.md` | Per-layer responsibilities and *forbidden* responsibilities |
-| 5 | `05-runtime-components.md` | The seven components: 5.2 HTTP, 5.3 rules, 5.4 MCTS, 5.5 lab, 5.6 persistence, 5.7 Face |
+| 5 | `05-runtime-components.md` | The seven components: 5.2 HTTP, 5.3 rules, **5.3.1 the draw rules**, 5.4 MCTS, 5.5 lab, 5.6 persistence, 5.7 Face |
 | 6 | `06-mcts-extensibility.md` | Domain types, `EvaluationStrategy`, 6.7 the global transposition table, 6.7.5 the two table modes, 6.8 determinism |
 | 7 | `07-face-llm-layer.md` | 7.4.1 device selection, 7.5 model profiles, 7.7 guardrails, 7.8 circuit breaker, 7.9 fallback |
 | 8 | `08-game-modes-and-flows.md` | Play Mode and Lab Mode end to end |
@@ -73,7 +73,7 @@ read the enclosing `##` heading. The index at
 ## When the document is wrong
 
 It has been wrong before — the eight defects in §0.2.2 were all found by reading,
-and two revisions were each caused by one number nobody had derived. If the
+two revisions were each caused by one number nobody had derived, and a third by a rule four sections required and none stated. If the
 architecture does not hold together, say so and stop; changing the document is a
 separate act from changing the code, and it has its own checklist
 (Appendix E).

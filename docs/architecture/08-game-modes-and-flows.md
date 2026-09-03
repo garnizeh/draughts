@@ -18,7 +18,9 @@ flowchart TB
     F -->|No| H["<b>MCTS Engine</b> searches for the CPU response<br/>probes and stores the shared transposition table<br/>(Deterministic mode)"]
     H --> I["CPU move selected"]
     I --> J["Move applied to GameState"]
-    J --> K["Enqueue durable write: move history, ack awaited<br/><i>durable class, §11.4</i>"]
+    J --> J2{"Game over?<br/>the same check, after<br/>the engine's move too"}
+    J2 -->|Yes| G1
+    J2 -->|No| K["Enqueue durable write: move history, ack awaited<br/><i>durable class, §11.4</i>"]
     K --> L["Face::commentary(ctx)"]
     L --> M{"Circuit state"}
     M -->|CLOSED| N["Candle inference, deadline 2500 ms"]
@@ -59,7 +61,7 @@ flowchart TB
         K --> L
         L --> M["Optionally sample root and child stats"]
         M --> N["Apply move"]
-        N --> O["Append the move to the in-worker history buffer<br/>and its key to the repetition window (§5.3.1)"]
+        N --> O["Append the move to the in-worker history buffer<br/>and the new position's key to the repetition window,<br/>which was seeded with the key it opened on (§5.3.1)"]
         O --> G
     end
 

@@ -12,8 +12,8 @@ Each stays in its conditional section below as well — hoisting it out would hi
 
 | Rule | Section | Hit rate | The most recent miss |
 |---|---|---|---|
-| Find every other document that states the same thing | [documentation](#if-you-changed-documentation) | 3/6 | `.claude/README.md` still described the `LESSONS.md` ledger schema with `caught` and no origin distinction, after `/gate` and `/respond` had already moved to `missed`/`saved` and earned/standing/preemptive. **Carries a false-positive note — read it before hunting** |
-| State what a rule says about everything it will be read against | [rules and policies](#if-you-wrote-a-rule-a-policy-or-a-checklist) | 0/1 | This file's own schema said every rule has "exactly one origin, always", while the same file carried three entry kinds |
+| Find every other document that states the same thing | [documentation](#if-you-changed-documentation) | 4/7 | A version bump to 1.5 changed every document that said "1.4" and none of the three that encoded the version without naming it: a `1.1–1.4` range, an Appendix marked **Current**, and a subsection list that gained an entry. **Carries a false-positive note — read it before hunting** |
+| State what a rule says about everything it will be read against | [rules and policies](#if-you-wrote-a-rule-a-policy-or-a-checklist) | 0/2 | §5.3.1 said a position recurring "for the third time since the last irreversible move" is a draw, which a reviewer read three different ways — board-only identity, a reset on any irreversible move, and a draw on the fourth occurrence |
 | Do not require something the platform cannot do | [rules and policies](#if-you-wrote-a-rule-a-policy-or-a-checklist) | 0/1 | A pasteable sequence in `merge-gate` instructed `git branch -d`, one bullet above the paragraph explaining that squash-only merges make it refuse every time |
 
 **A rule leaves this block after a full release with no new miss, and goes back to living in its section alone.** It does not leave because someone rewrote it and feels better about the wording; it leaves on evidence, like everything else here.
