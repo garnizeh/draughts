@@ -268,6 +268,8 @@ Promotion keys on **missed**, and the first miss buys a rewrite of the sentence 
 
 Rules with a miss are hoisted into a *Failed before* block at the top of the file, and demoted out of it after a release with no new miss. Attention is as scarce a budget as context: if everything is at the top, nothing is.
 
+Every rule carries a `scope:` selector — the paths and kinds of change it applies to. Nothing reads them, and at this size the `if you changed X` headings are a better index because they are exact. They are written because a scope is a test of the rule: one you can only state as "most of the tree" is telling you the rule will fire on everything and be ignored. A broad scope and a false-positive problem turn out to be one fact seen from two sides.
+
 A rule that is prone to false positives carries a `⚠ Looks like a violation but is not` note inline, listing what will look wrong and is not. That note is part of the rule: someone reading the file against a diff is about to go looking, and a rule that sends them chasing ghosts three times gets ignored the fourth — on the occasion that counted. It is also the cheapest test of whether a rule could ever be a script: exceptions you cannot state crisply for a person will not separate cleanly for a checker either.
 
 One caveat stated in the file itself: `saved` is self-reported and has no review thread behind it. Record one only when you can name what it caught, as concretely as a miss names its finding. Since the hit rate divides by the sum of both, an inflated `saved` corrupts the only number that ranks the rules.

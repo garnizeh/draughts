@@ -104,6 +104,8 @@ Bump a counter by **appending a `#PR (date)` entry to its list**, never by editi
 
 A finding that creates a new rule is that rule's **origin**, never a miss: the rule did not exist, so it cannot have failed. A finding on a class already in the file is a **miss**, and it is the entry worth writing carefully, because it is the only one that criticises the writing rather than the world.
 
+Give the rule a `scope:` selector — paths and change kinds, as an HTML comment beneath it. Nothing reads them yet; write it because **it is a test of the rule**. If you cannot say when it applies without naming most of the tree, the rule is too broad to fire usefully, and you have learned that before writing it rather than after it is ignored.
+
 **If applying the rule turned up things that looked wrong and were not, write that down as a `⚠ Looks like a violation but is not` note on the rule itself** — not in the commit message, and not in RETIRED.md. The negative knowledge belongs where the next reader will be standing when they need it. It is also the cheapest signal that a rule is unmechanizable: if you cannot state the exceptions crisply enough for a person, no script will separate them either.
 
 **Record a `saved` only when you can name what it caught**, as concretely as a miss names its finding. `saved` is self-reported and has no review thread behind it; a save with no named defect is a rule congratulating itself, and since the hit rate divides by the sum of both, inflating it corrupts the only number that ranks the rules.
