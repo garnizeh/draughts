@@ -15,6 +15,8 @@ Before triaging anything, read [LESSONS.md](LESSONS.md). It is not a log of past
 
 Two reasons to read it before phase 1 rather than after. It tells you what to look for in the diff under review, which is often faster than reading the findings. And it tells you whether a finding you are about to dismiss as a one-off has been seen before — because **"an instance is just a bug" is right the first time and wrong the third**, and there is no other way to notice the second occurrence.
 
+Each rule carries an **origin** — the finding that created it — and two counters: **missed**, the times it existed and a reviewer caught the mistake anyway, and **saved**, the times it was read before a PR and caught it first. `saved / (saved + missed)` is the rule's hit rate, and it is the number that says whether a rule is pulling its weight. A high `missed` with a zero `saved` does not mean the class is stubborn; it means **the text is not working**, and rewriting it is worth more than bumping it.
+
 ## 1. Fetch everything
 
 ```bash
@@ -64,7 +66,11 @@ For each finding you accepted, ask one question:
 
 **An instance is just a bug** — the first time. Fix it, write the rule into LESSONS.md, move on. Adding a script per instance is how a gate becomes slow, noisy, and eventually unread, which costs more than the bug did.
 
-But if LESSONS.md already carries a rule covering it, it is not an instance any more, and the counter decides where it goes. The thresholds are in that file's header and are the whole reason it has counters: **×2 for anything a script can decide**, because a check costs a second of CI and nothing to remember; **×5 before a rule earns a line in `CLAUDE.md`**, because that is loaded into every session on every turn and the context budget is the scarcest thing the harness spends.
+But if LESSONS.md already carries a rule covering it, this is a **miss**, not an instance — the rule was there and did not fire — and the `missed` counter decides what happens next.
+
+**The first miss buys a rewrite, not a promotion.** A rule that failed once may simply have been worded badly, and mechanizing a property nobody has managed to state clearly produces a badly-aimed check. Fix the sentence, and say in the entry what you changed about it. The second miss is when to stop rewriting: the thresholds are in that file's header — **missed ×2 for anything a script can decide**, because a check costs a second of CI and nothing to remember; **missed ×5 before a rule earns a line in `CLAUDE.md`**, because that is loaded into every session on every turn and the context budget is the scarcest thing the harness spends.
+
+You may also write a check before its counter asks for one, when the risk is obvious and the property is cheap to assert. Say so in the entry and leave the counters at zero. The thresholds are a floor on when you *must* act, never a ceiling on when you may.
 
 A check earned this way must clear four bars before it lands:
 
@@ -92,7 +98,11 @@ Before calling the review answered, add what it taught to [LESSONS.md](LESSONS.m
 
 Record rejections the same way. "Raised and deliberately not fixed, because X" is worth more to the next reader than silence.
 
-Bump the counter by **appending the PR number to the citation**, never by editing a digit — the list of PRs *is* the count, so the evidence and the number cannot drift apart.
+Bump a counter by **appending a `#PR (date)` entry to its list**, never by editing a digit — the list *is* the count, so the evidence and the number cannot drift apart.
+
+A finding that creates a new rule is that rule's **origin**, never a miss: the rule did not exist, so it cannot have failed. A finding on a class already in the file is a **miss**, and it is the entry worth writing carefully, because it is the only one that criticises the writing rather than the world.
+
+**Record a `saved` only when you can name what it caught**, as concretely as a `caught` entry names its finding. `saved` is self-reported and has no review thread behind it; a save with no named defect is a rule congratulating itself, and a counter that only ever goes up measures nothing.
 
 The file stays bounded by itself, and that is deliberate: a rule leaves it when it graduates, to a script at ×2 or to `CLAUDE.md` at ×5, moving to the *Retired* section with a pointer to whatever replaced it. LESSONS.md holds only what is not yet mechanized and not yet permanent. If it is growing and nothing is graduating, that is the signal — the harvest phase is being skipped.
 
@@ -107,3 +117,5 @@ PR #99 produced four findings. Two named classes and became permanent checks ins
 - **Never resolve a thread you did not act on.** A reply explaining why it stands is an answer; silent resolution is not.
 - **Never leave LESSONS.md unwritten.** A review that changes nothing about how the next mistake is caught was a review half-read.
 - **Never write a story where a rule belongs.** The file is read by someone about to make a change, not by someone studying the past.
+- **Never record a `saved` you cannot point at.** It is the only counter with nothing external backing it, which makes it the only one that can quietly become fiction — and since the hit rate divides by the sum of both, inflating it does not merely flatter one rule, it corrupts the number that ranks them all.
+- **Never file a miss as an origin.** It is the flattering mistake: an origin says the world was surprising, a miss says your sentence failed. Only the second one tells anyone to rewrite it.

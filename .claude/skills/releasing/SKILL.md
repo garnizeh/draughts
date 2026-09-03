@@ -40,6 +40,10 @@ just version                    # what the tree currently claims to be
    section goes directly under `[Unreleased]`, above every older one. Add the
    link references at the bottom.
 4. `just changelog-rotate` if that took the file past five released sections.
+   Read `.claude/skills/review-response/LESSONS.md` in the same pass: demote any
+   rule out of its *Failed before* block that has gone this release without a
+   new miss, and consider deleting any rule cold in both counters since the last
+   one. A release is the only clock that file has.
 5. `just release-check x.y.z` — must print `x.y.z is ready`.
 6. `just pre-pr`.
 7. Open the PR, merge it. The tag appears by itself; so does the release.

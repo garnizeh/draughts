@@ -258,13 +258,13 @@ where every line cites the pull requests it was earned from. Read it against
 your own diff before opening a PR; it is the cheapest place left to catch the
 things no script catches yet.
 
-The citation list is a counter, and the counter is a promotion ladder. At two
-occurrences, anything a script can decide becomes a check in `just ci` — a check
-costs a second of CI and nothing at all to remember. At five, a rule that only
-judgment can decide earns a line in `CLAUDE.md`, which is loaded into every
-session and is therefore the most expensive place in the tree to put a sentence.
-Either way the line leaves the file, so it stays bounded by graduation rather
-than by pruning.
+Each rule carries two lists of evidence rather than two numbers, so the count and the proof cannot drift apart. **caught** is the times the rule was violated and someone else found it. **saved** is the times it was read before a PR and caught the mistake first. Last-useful is the latest date in either, and is not written down — a third number is a third thing to forget.
+
+The pair says more than either. A rule with a high `caught` and a zero `saved` is one nobody is reading, or one written in a way that does not fire; rewriting it is worth more than bumping it. A rule with a high `saved` and a low `caught` is working, and should be left alone. A rule cold in both since the previous release is a candidate for deletion — it has either been internalised or it is about code nobody touches — and that question, asked at each release, is what stops the file growing from the far end.
+
+Promotion keys on **caught** alone, because a `caught` recorded after the rule already existed means the checklist did not prevent it. At two, anything a script can decide becomes a check in `just ci` — a check costs a second of CI and nothing at all to remember. At five, a rule that only judgment can decide earns a line in `CLAUDE.md`, which is loaded into every session and is therefore the most expensive place in the tree to put a sentence. Either way the line leaves the file, so it stays bounded by graduation rather than by pruning. A check may also be written before its counter asks for one, when the risk is obvious and the property is cheap to assert — say so, and leave the counters at zero.
+
+One caveat stated in the file itself: `saved` is self-reported and has no review thread behind it. Record one only when you can name what it caught, as concretely as a `caught` entry names its finding. A counter that only ever goes up measures nothing.
 
 ## Filing an issue
 

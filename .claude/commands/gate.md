@@ -36,4 +36,6 @@ $ARGUMENTS
 
 5. Read `.claude/skills/review-response/LESSONS.md` against this diff. It is a short conditional checklist — *if you changed documentation, find the other files that say the same thing; if you changed a validator, check it rejects the missing case* — and every line on it is there because a reviewer once caught it here. Cheaper to run your own eyes over it now than to learn it again from a review thread.
 
+   **If a rule catches something, append a `#PR (date)` entry to its `saved` list and say in your report what it caught.** Together with `missed` — the times a rule was there and a reviewer found the mistake anyway — that gives each rule a hit rate, which is how the file learns which of its rules actually work rather than merely which mistakes are common. Record a save only when you can name the defect: it is the one counter with no review thread behind it, and the hit rate divides by both.
+
 If I touched search or the transposition table, also run `just test-tt-off`.
