@@ -13,7 +13,7 @@ CLAUDE.md                       project instructions, loaded every session
   skills/                       loaded on demand, by description match
     architecture-map/           finding the authoritative § for a question
     implement-seam/             turning a todo!() into an implementation
-    merge-gate/                 just pre-pr, its failures, and what is nightly
+    merge-gate/                 just pre-pr, its failures, nightly, post-merge cleanup
     persisted-format/           the format_version discipline (§13.7, §20.8)
     face-layer/                 device, profiles, breaker, "the LLM never plays"
     transposition-safety/       the determinism contract (§6.7, §20.5)
