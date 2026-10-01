@@ -242,7 +242,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: reviewdog/action-actionlint@d290e336d5a743810aef4404f757dc862276d2ae # v1
+      - uses: reviewdog/action-actionlint@2085657ab2c7f48c58edcc767fba576f63bea76b # v1
         with:
           # Report everything, not only the lines this PR touched: a workflow is
           # read as a whole and a finding two jobs away is still this PR's
@@ -273,7 +273,7 @@ jobs:
         with:
           key: coverage
 
-      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
         with:
           tool: cargo-llvm-cov
 
